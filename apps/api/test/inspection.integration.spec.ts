@@ -306,3 +306,102 @@ describe("GET /reports/:id/download — private, short-lived, authorization-chec
     await t.api.get("/api/v1/reports/x/download").expect(401);
   });
 });
+
+describe("GET /inspections — list with filtering and pagination", () => {
+  it("returns all org inspections with pagination (happy path)", async () => {
+    const { cookie, userId, organizationId } = await registerOrg(t.api);
+    await seedInspection("DRAFT", { principal: { userId, organizationId } });
+    await seedInspection("SUBMITTED", { principal: { userId, organizationId } });
+    await seedInspection("ANALYZING", { principal: { userId, organizationId } });
+
+    const res = await t.api.get("/api/v1/inspections?limit=10&offset=0").set("Cookie", cookie).expect(200);
+    expect(res.body.data).toHaveLength(3);
+    expect(res.body.pagination.total).toBe(3);
+    expect(res.body.pagination.hasMore).toBe(false);
+  });
+
+  it("filters by status", async () => {
+    const { cookie, userId, organizationId } = await registerOrg(t.api);
+    await seedInspection("DRAFT", { principal: { userId, organizationId } });
+    await seedInspection("SUBMITTED", { principal: { userId, organizationId } });
+    await seedInspection("ANALYZING", { principal: { userId, organizationId } });
+
+    const res = await t.api.get("/api/v1/inspections?status=SUBMITTED").set("Cookie", cookie).expect(200);
+    expect(res.body.data).toHaveLength(1);
+    expect(res.body.data[0].status).toBe("SUBMITTED");
+  });
+
+  it("respects limit and offset pagination", async () => {
+    const { cookie, userId, organizationId } = await registerOrg(t.api);
+    await seedInspection("DRAFT", { principal: { userId, organizationId } });
+    await seedInspection("SUBMITTED", { principal: { userId, organizationId } });
+    await seedInspection("ANALYZING", { principal: { userId, organizationId } });
+
+    const res1 = await t.api.get("/api/v1/inspections?limit=2&offset=0").set("Cookie", cookie).expect(200);
+    expect(res1.body.data).toHaveLength(2);
+    expect(res1.body.pagination.hasMore).toBe(true);
+
+    const res2 = await t.api.get("/api/v1/inspections?limit=2&offset=2").set("Cookie", cookie).expect(200);
+    expect(res2.body.data).toHaveLength(1);
+    expect(res2.body.pagination.hasMore).toBe(false);
+  });
+
+  it("returns empty list when no inspections match", async () => {
+    const { cookie } = await registerOrg(t.api);
+    const res = await t.api.get("/api/v1/inspections?status=COMPLETED").set("Cookie", cookie).expect(200);
+    expect(res.body.data).toHaveLength(0);
+    expect(res.body.pagination.total).toBe(0);
+  });
+
+  it("isolates org inspections (cross-org denied)", async () => {
+    const a = await registerOrg(t.api, { organizationName: "A" });
+    const b = await registerOrg(t.api, { email: `b-${crypto.randomUUID()}@x.co.za`, organizationName: "B" });
+
+    const fx = await seedInspection("DRAFT", { principal: { userId: a.userId, organizationId: a.organizationId } });
+    const fx2 = await seedInspection("SUBMITTED", { principal: { userId: b.userId, organizationId: b.organizationId } });
+
+    const aRes = await t.api.get("/api/v1/inspections").set("Cookie", a.cookie).expect(200);
+    expect(aRes.body.data).toHaveLength(1);
+    expect(aRes.body.data[0].id).toBe(fx.inspection.id);
+
+    const bRes = await t.api.get("/api/v1/inspections").set("Cookie", b.cookie).expect(200);
+    expect(bRes.body.data).toHaveLength(1);
+    expect(bRes.body.data[0].id).toBe(fx2.inspection.id);
+  });
+
+  it("401 without authentication", async () => {
+    await t.api.get("/api/v1/inspections").expect(401);
+  });
+});
+
+describe("GET /inspections/:id — evidence presigned GET URLs", () => {
+  it("includes downloadUrl + expiresAt for each evidence item", async () => {
+    const { cookie, userId, organizationId } = await registerOrg(t.api);
+    const fx = await seedInspection("UNDER_REVIEW", { evidence: true }, { principal: { userId, organizationId } });
+    const res = await t.api.get(`/api/v1/inspections/${fx.inspection.id}`).set("Cookie", cookie).expect(200);
+
+    expect(res.body.evidence.length).toBeGreaterThan(0);
+    for (const ev of res.body.evidence) {
+      expect(ev.downloadUrl).toBeDefined();
+      expect(ev.downloadUrl).toContain("X-Amz-Signature");
+      expect(ev.expiresAt).toBeDefined();
+      expect(new Date(ev.expiresAt).getTime()).toBeGreaterThan(Date.now());
+    }
+  });
+
+  it("presigned URLs work for authorized access", async () => {
+    const { cookie, userId, organizationId } = await registerOrg(t.api);
+    const fx = await seedInspection("UNDER_REVIEW", { evidence: true }, { principal: { userId, organizationId } });
+    const res = await t.api.get(`/api/v1/inspections/${fx.inspection.id}`).set("Cookie", cookie).expect(200);
+
+    const ev = res.body.evidence[0];
+    const signed = await fetch(ev.downloadUrl);
+    expect(signed.status).toBe(200);
+  });
+
+  it("404 when cross-org user tries to fetch evidence", async () => {
+    const b = await registerOrg(t.api, { email: `b-${crypto.randomUUID()}@x.co.za`, organizationName: "B" });
+    const fx = await seedInspection("UNDER_REVIEW", { evidence: true });
+    await t.api.get(`/api/v1/inspections/${fx.inspection.id}`).set("Cookie", b.cookie).expect(404);
+  });
+});

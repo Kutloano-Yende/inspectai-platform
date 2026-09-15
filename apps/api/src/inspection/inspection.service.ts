@@ -52,6 +52,46 @@ export class InspectionService {
     return mapInspection(row);
   }
 
+  async listInspections(
+    principal: Principal,
+    opts?: { status?: string | undefined; limit?: number; offset?: number },
+  ) {
+    const orgIds = (principal.memberships ?? []).map((m) => m.organizationId);
+    const limit = Math.min(opts?.limit ?? 20, 100);
+    const offset = opts?.offset ?? 0;
+
+    const where: Prisma.InspectionWhereInput = {
+      organizationId: { in: orgIds },
+      ...(opts?.status ? { status: opts.status } : {}),
+    };
+
+    const [rows, total] = await Promise.all([
+      this.prisma.inspection.findMany({
+        where,
+        orderBy: { createdAt: "desc" },
+        include: { tenancy: { include: { unit: { include: { property: true } } } }, analyses: { take: 1, orderBy: { id: "desc" } } },
+        take: limit,
+        skip: offset,
+      }),
+      this.prisma.inspection.count({ where }),
+    ]);
+
+    return {
+      data: rows.map((row) => ({
+        id: row.id,
+        type: row.type,
+        status: row.status,
+        tenancy: row.tenancy ? { id: row.tenancy.id } : null,
+        property: row.tenancy?.unit?.property ? { id: row.tenancy.unit.property.id, address: row.tenancy.unit.property.displayName } : null,
+        submittedAt: row.submittedAt?.toISOString() ?? null,
+        completedAt: row.completedAt?.toISOString() ?? null,
+        createdAt: row.createdAt.toISOString(),
+        analysisStatus: row.analyses[0]?.status ?? "PENDING",
+      })),
+      pagination: { total, limit, offset, hasMore: offset + limit < total },
+    };
+  }
+
   async getInspection(principal: Principal, id: string) {
     const row = await this.prisma.inspection.findUnique({
       where: { id },
@@ -64,7 +104,7 @@ export class InspectionService {
     });
     if (!row) throw new NotFoundError("Inspection not found");
     this.org.assertMembership(principal, row.organizationId);
-    return this.mapDetail(row);
+    return await this.mapDetail(row);
   }
 
   async submitInspection(principal: Principal, id: string) {
@@ -382,9 +422,19 @@ export class InspectionService {
     return map[contentType] || "bin";
   }
 
-  private mapDetail(row: NonNullable<Awaited<ReturnType<InspectionService["getInspectionRow"]>>>) {
+  private async mapDetail(row: NonNullable<Awaited<ReturnType<InspectionService["getInspectionRow"]>>>) {
     const analysis = row.analyses[0] ?? null;
     const reviewByFinding = new Map((row.review?.findingReviews ?? []).map((r) => [r.findingId, r]));
+    const evidenceBucket = process.env.S3_EVIDENCE_BUCKET ?? "inspectai-evidence";
+
+    const evidenceWithUrls = await Promise.all(
+      row.evidence.map(async (e) => ({
+        ...mapEvidence(e),
+        downloadUrl: await this.storage.presignGet(evidenceBucket, e.storageKey, 60),
+        expiresAt: new Date(Date.now() + 60_000).toISOString(),
+      }))
+    );
+
     return {
       id: row.id,
       tenancyId: row.tenancyId,
@@ -395,7 +445,7 @@ export class InspectionService {
       submittedAt: row.submittedAt,
       completedAt: row.completedAt,
       createdAt: row.createdAt,
-      evidence: row.evidence.map(mapEvidence),
+      evidence: evidenceWithUrls,
       analysis: analysis
         ? {
             id: analysis.id,

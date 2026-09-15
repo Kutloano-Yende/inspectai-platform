@@ -1,4 +1,4 @@
-import { Body, Controller, Get, HttpCode, Inject, Param, Post } from "@nestjs/common";
+import { Body, Controller, Get, HttpCode, Inject, Param, Post, Query } from "@nestjs/common";
 import { CreateInspectionRequest, CreateEvidenceUploadRequest, CommitEvidenceRequest, FindingReview, SubmitReviewRequest } from "@inspectai/contracts";
 import { z } from "zod";
 import { ZodValidationPipe } from "../shared/zod.pipe.js";
@@ -24,6 +24,20 @@ const ReviewRequestBodySchema = z.object({
 @Controller()
 export class InspectionController {
   constructor(@Inject(InspectionService) private readonly inspections: InspectionService) {}
+
+  @Get("inspections")
+  listInspections(
+    @CurrentUser() principal: Principal,
+    @Query("status") status?: string,
+    @Query("limit") limit?: string,
+    @Query("offset") offset?: string,
+  ) {
+    const opts: { status?: string; limit?: number; offset?: number } = {};
+    if (status) opts.status = status;
+    if (limit) opts.limit = Math.max(1, parseInt(limit));
+    if (offset) opts.offset = Math.max(0, parseInt(offset));
+    return this.inspections.listInspections(principal, opts);
+  }
 
   @Post("tenancies/:id/inspections")
   @HttpCode(201)
