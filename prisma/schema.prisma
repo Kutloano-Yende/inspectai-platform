@@ -1,0 +1,290 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ---------- Identity ----------
+
+model Organization {
+  id        String   @id @default(cuid())
+  name      String
+  createdAt DateTime @default(now())
+
+  memberships  OrganizationMembership[]
+  properties   Property[]
+  tenancies    Tenancy[]
+  invitations  TenantInvitation[]
+  inspections  Inspection[]
+  reports      Report[]
+  auditEvents  AuditEvent[]
+}
+
+model User {
+  id            String   @id @default(cuid())
+  email         String   @unique
+  passwordHash  String
+  fullName      String
+  createdAt     DateTime @default(now())
+
+  memberships   OrganizationMembership[]
+  sessions      Session[]
+  reviews       InspectionReview[]
+  publishedReports Report[]    @relation("PublishedReports")
+  auditEvents   AuditEvent[] @relation("ActorUser")
+}
+
+model Session {
+  id        String   @id @default(cuid())
+  tokenHash String   @unique
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+}
+
+model OrganizationMembership {
+  id             String   @id @default(cuid())
+  userId         String
+  organizationId String
+  role           String // OWNER | LANDLORD | PROPERTY_MANAGER | ADMIN
+  createdAt      DateTime @default(now())
+
+  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, organizationId])
+}
+
+// ---------- Portfolio ----------
+
+model Property {
+  id             String    @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id])
+  displayName    String
+  propertyType   String    @default("RESIDENTIAL") // RESIDENTIAL | COMMERCIAL
+  addressLine1   String
+  addressLine2   String?
+  city           String
+  province       String
+  postalCode     String
+  country        String    @default("ZA")
+  archivedAt     DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  units Unit[]
+
+  @@index([organizationId])
+}
+
+model Unit {
+  id             String   @id @default(cuid())
+  propertyId     String
+  property       Property @relation(fields: [propertyId], references: [id])
+  organizationId String
+  label          String
+  bedrooms       Int?
+  bathrooms      Int?
+  createdAt      DateTime @default(now())
+
+  tenancies Tenancy[]
+
+  @@index([organizationId, propertyId])
+}
+
+// ---------- Tenancy ----------
+
+model Tenancy {
+  id             String   @id @default(cuid())
+  unitId         String
+  unit           Unit     @relation(fields: [unitId], references: [id])
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id])
+  startDate      DateTime
+  endDate        DateTime?
+  createdAt      DateTime @default(now())
+
+  invitations TenantInvitation[]
+  inspections Inspection[]
+
+  @@index([organizationId])
+}
+
+model TenantInvitation {
+  id             String    @id @default(cuid())
+  tenancyId      String
+  tenancy        Tenancy   @relation(fields: [tenancyId], references: [id])
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id])
+  tenantEmail    String
+  tenantFullName String
+  tenantPhone    String?
+  status         String    @default("PENDING") // PENDING | ACCEPTED | EXPIRED | REVOKED
+  tokenHash      String    @unique // sha256 of the opaque token; raw token never stored
+  expiresAt      DateTime
+  acceptedAt     DateTime?
+  createdAt      DateTime  @default(now())
+
+  inspections Inspection[]
+
+  @@index([organizationId])
+}
+
+// ---------- Inspection ----------
+
+model Inspection {
+  id             String   @id @default(cuid())
+  tenancyId      String
+  tenancy        Tenancy  @relation(fields: [tenancyId], references: [id])
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id])
+  invitationId   String? // set when tenant-driven; scopes tenant access
+  invitation     TenantInvitation? @relation(fields: [invitationId], references: [id])
+  type           String // MOVE_IN | MOVE_OUT | ROUTINE
+  status         String // contracts INSPECTION_TRANSITIONS
+  plan           Json // InspectionPlan snapshot
+  scheduledFor   DateTime?
+  submittedAt    DateTime?
+  completedAt    DateTime?
+  createdAt      DateTime  @default(now())
+
+  evidence   Evidence[]
+  uploadTickets UploadTicket[]
+  analyses   AiAnalysis[]
+  review     InspectionReview?
+  reports    Report[]
+
+  @@index([organizationId, status])
+}
+
+model UploadTicket {
+  id           String   @id @default(cuid())
+  inspectionId String
+  inspection   Inspection @relation(fields: [inspectionId], references: [id], onDelete: Cascade)
+  checkpointId String
+  evidenceId   String   @unique
+  storageKey   String   @unique
+  nonceHash    String
+  contentSha256 String
+  expiresAt    DateTime
+  usedAt       DateTime?
+  createdAt    DateTime @default(now())
+
+  evidence Evidence @relation(fields: [evidenceId], references: [id], onDelete: Cascade)
+}
+
+model Evidence {
+  id           String   @id @default(cuid())
+  inspectionId String
+  inspection   Inspection @relation(fields: [inspectionId], references: [id], onDelete: Cascade)
+  checkpointId String
+  kind         String // PHOTO | VIDEO
+  storageKey   String @unique
+  contentSha256 String
+  bytes        Int
+  capturedAt   DateTime
+  gps          Json?
+  deviceMetadata Json?
+  verification Json // EvidenceVerification
+  committedAt  DateTime?
+
+  uploadTicket UploadTicket?
+
+  @@unique([inspectionId, contentSha256]) // duplicate detection
+}
+
+// ---------- AI analysis (advisory only) ----------
+
+model AiAnalysis {
+  id             String   @id @default(cuid())
+  inspectionId   String
+  inspection     Inspection @relation(fields: [inspectionId], references: [id], onDelete: Cascade)
+  status         String // PENDING | RUNNING | COMPLETED | FAILED
+  findings       Finding[]
+  conditionScore Json?
+  summary        String?
+  provenance     Json? // provider, model, inputSetSha256, completedAt
+
+  @@index([inspectionId])
+}
+
+model Finding {
+  id            String   @id @default(cuid())
+  analysisId    String
+  analysis      AiAnalysis @relation(fields: [analysisId], references: [id], onDelete: Cascade)
+  checkpointId  String?
+  roomLabel     String?
+  category      String
+  severity      String // LOW | MEDIUM | HIGH
+  confidence    Float
+  observation   String
+  evidenceIds   Json // string[] — non-empty per contracts
+  recommendation Json? // Recommendation (advisory)
+
+  reviews FindingReview[]
+}
+
+// ---------- Human review & report ----------
+
+model InspectionReview {
+  id               String   @id @default(cuid())
+  inspectionId     String   @unique
+  inspection       Inspection @relation(fields: [inspectionId], references: [id])
+  reviewedByUserId String
+  reviewedBy       User     @relation(fields: [reviewedByUserId], references: [id])
+  reviewedAt       DateTime @default(now())
+  overallNote      String?
+
+  findingReviews FindingReview[]
+}
+
+model FindingReview {
+  id                  String @id @default(cuid())
+  reviewId            String
+  review              InspectionReview @relation(fields: [reviewId], references: [id], onDelete: Cascade)
+  findingId           String
+  finding             Finding @relation(fields: [findingId], references: [id], onDelete: Cascade)
+  decision            String // ACCEPTED | AMENDED | REJECTED
+  amendedObservation  String?
+  landlordNote        String?
+}
+
+model Report {
+  id                String   @id @default(cuid())
+  inspectionId      String
+  inspection        Inspection @relation(fields: [inspectionId], references: [id])
+  organizationId    String
+  organization      Organization @relation(fields: [organizationId], references: [id])
+  version           Int
+  publishedByUserId String
+  publishedBy       User     @relation("PublishedReports", fields: [publishedByUserId], references: [id])
+  publishedAt       DateTime @default(now())
+  pdfStorageKey     String
+
+  @@unique([inspectionId, version])
+}
+
+// ---------- Audit (append-only; no update/delete code paths exist) ----------
+
+model AuditEvent {
+  id             String   @id @default(cuid())
+  organizationId String?
+  organization   Organization? @relation(fields: [organizationId], references: [id])
+  actorType      String // USER | TENANT_TOKEN | SYSTEM
+  actorUserId    String?
+  actorUser      User?    @relation("ActorUser", fields: [actorUserId], references: [id])
+  action         String // packages/domain auditActions
+  entityType     String
+  entityId       String
+  metadata       Json?
+  createdAt      DateTime @default(now())
+
+  @@index([organizationId, entityType, entityId])
+}

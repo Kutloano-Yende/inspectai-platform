@@ -1,0 +1,43 @@
+/*
+ * InspectAI design tokens as CSS custom properties.
+ * Mirrors src/tokens.ts — the TS file is authoritative; a unit test enforces parity.
+ */
+:root {
+  /* Core palette */
+  --color-navy: #17324D;
+  --color-slate: #334E68;
+  --color-teal: #287D76;
+  --color-stone: #F5F4F1;
+  --color-sand: #E9E5DC;
+  --color-white: #FFFFFF;
+
+  /* Derived neutrals */
+  --color-ink: #1A2A3A;
+  --color-border: #D8D4CC;
+  --color-border-strong: #B9B4A9;
+  --color-muted-text: #6B7A8C;
+
+  /* Status (sparing use) */
+  --color-success: #2E7D52;
+  --color-warning: #B26B00;
+  --color-danger: #A63A3A;
+  --color-info: #2F5D8A;
+
+  /* Severity */
+  --color-severity-low: #6B7A8C;
+  --color-severity-medium: #B26B00;
+  --color-severity-high: #A63A3A;
+
+  /* Radii (8–12px) */
+  --radius-sm: 8px;
+  --radius-md: 10px;
+  --radius-lg: 12px;
+
+  /* Shadows (subtle) */
+  --shadow-card: 0 1px 2px rgba(23, 50, 77, 0.06), 0 1px 3px rgba(23, 50, 77, 0.08);
+  --shadow-overlay: 0 4px 16px rgba(23, 50, 77, 0.12);
+
+  /* Typography */
+  --font-sans: "Inter", -apple-system, "Segoe UI", Roboto, sans-serif;
+  --font-serif: "Source Serif 4", Georgia, serif;
+}

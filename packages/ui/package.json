@@ -1,0 +1,23 @@
+{
+  "name": "@inspectai/ui",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "./dist/tokens.js",
+  "types": "./dist/tokens.d.ts",
+  "exports": {
+    ".": { "types": "./dist/tokens.d.ts", "import": "./dist/tokens.js" },
+    "./tokens.css": "./dist/tokens.css",
+    "./tailwind": "./tailwind-preset.js"
+  },
+  "files": ["dist", "tailwind-preset.js"],
+  "scripts": {
+    "build": "tsc -p tsconfig.json && cp src/tokens.css dist/tokens.css",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run"
+  },
+  "devDependencies": {
+    "typescript": "^5.5.4",
+    "vitest": "^2.0.5"
+  }
+}
