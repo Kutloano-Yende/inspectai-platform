@@ -25,8 +25,15 @@ export async function fetchApi<T>(
   });
 
   if (!response.ok) {
-    const error = await response.text();
-    throw new ApiError(response.status, error || `HTTP ${response.status}`);
+    const text = await response.text();
+    let message = text || `HTTP ${response.status}`;
+    try {
+      const body = JSON.parse(text) as { detail?: string; title?: string };
+      message = body.detail || body.title || message;
+    } catch {
+      // Response wasn't JSON; fall back to the raw text.
+    }
+    throw new ApiError(response.status, message);
   }
 
   return response.json();

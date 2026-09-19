@@ -114,11 +114,13 @@ export function AuthScreen({ mode, onSubmit }: AuthScreenProps) {
             </p>
           </div>
 
-          <form className={styles.form} onSubmit={handleSubmit} noValidate>
+          <form className={styles.form} onSubmit={handleSubmit}>
             {!isLogin && (
               <>
                 <label className={styles.field}>
-                  <span>Organisation name</span>
+                  <span>
+                    Organisation name <span className={styles.required}>*</span>
+                  </span>
                   <div className={styles.inputWrap}>
                     <HugeIcon icon={Building06Icon} size={18} />
                     <input
@@ -133,7 +135,9 @@ export function AuthScreen({ mode, onSubmit }: AuthScreenProps) {
                 </label>
 
                 <label className={styles.field}>
-                  <span>Full name</span>
+                  <span>
+                    Full name <span className={styles.required}>*</span>
+                  </span>
                   <div className={styles.inputWrap}>
                     <HugeIcon icon={UserIcon} size={18} />
                     <input
@@ -150,7 +154,9 @@ export function AuthScreen({ mode, onSubmit }: AuthScreenProps) {
             )}
 
             <label className={styles.field}>
-              <span>Email</span>
+              <span>
+                Email <span className={styles.required}>*</span>
+              </span>
               <div className={styles.inputWrap}>
                 <HugeIcon icon={Mail01Icon} size={18} />
                 <input
@@ -165,7 +171,9 @@ export function AuthScreen({ mode, onSubmit }: AuthScreenProps) {
             </label>
 
             <label className={styles.field}>
-              <span>Password</span>
+              <span>
+                Password <span className={styles.required}>*</span>
+              </span>
               <div className={styles.inputWrap}>
                 <HugeIcon icon={LockKeyholeIcon} size={18} />
                 <input

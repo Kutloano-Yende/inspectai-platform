@@ -163,6 +163,10 @@
   font-weight: 600;
 }
 
+.required {
+  color: var(--blue);
+}
+
 .hint {
   color: var(--muted);
   font-size: 11px;
