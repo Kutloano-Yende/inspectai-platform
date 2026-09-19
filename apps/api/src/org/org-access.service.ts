@@ -39,8 +39,8 @@ export class OrgAccessService {
       this.assertMembership(principal, requested);
       return requested;
     }
+    if (!principal.memberships || principal.memberships.length === 0) throw new ForbiddenError("NO_ORGANIZATION", "Principal belongs to no organization");
     if (principal.memberships.length === 1) return principal.memberships[0]!.organizationId;
-    if (principal.memberships.length === 0) throw new ForbiddenError("NO_ORGANIZATION", "Principal belongs to no organization");
     throw new ForbiddenError("ORGANIZATION_AMBIGUOUS", "organizationId is required for principals with multiple organizations");
   }
 }

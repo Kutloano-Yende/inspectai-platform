@@ -1,48 +1,17 @@
 "use client";
 
-import { useQuery } from "@tanstack/react-query";
+import Link from "next/link";
 import { useState } from "react";
-import { fetchApi } from "@/lib/api";
+import { useInspections } from "@/lib/hooks/useInspections";
 import { LoadingState, ErrorState, EmptyState } from "@/components/States";
 import styles from "./page.module.css";
-
-interface Inspection {
-  id: string;
-  type: string;
-  status: string;
-  tenancy: { id: string } | null;
-  property: { id: string; address: string } | null;
-  submittedAt: string | null;
-  completedAt: string | null;
-  createdAt: string;
-  analysisStatus: string;
-}
-
-interface InspectionsResponse {
-  data: Inspection[];
-  pagination: {
-    total: number;
-    limit: number;
-    offset: number;
-    hasMore: boolean;
-  };
-}
 
 export default function InspectionsPage() {
   const [status, setStatus] = useState<string>("");
   const [offset, setOffset] = useState(0);
   const limit = 20;
 
-  const { data, isLoading, error } = useQuery<InspectionsResponse>({
-    queryKey: ["inspections", status, offset],
-    queryFn: async () => {
-      const params = new URLSearchParams();
-      if (status) params.append("status", status);
-      params.append("limit", String(limit));
-      params.append("offset", String(offset));
-      return fetchApi(`/inspections?${params}`);
-    },
-  });
+  const { data, isLoading, error } = useInspections({ status: status || undefined, limit, offset });
 
   if (isLoading) return <LoadingState />;
   if (error) return <ErrorState message={error.message} />;
@@ -59,10 +28,12 @@ export default function InspectionsPage() {
           <select value={status} onChange={(e) => { setStatus(e.target.value); setOffset(0); }} className={styles.select}>
             <option value="">All Statuses</option>
             <option value="DRAFT">Draft</option>
+            <option value="IN_PROGRESS">In Progress</option>
             <option value="SUBMITTED">Submitted</option>
             <option value="ANALYZING">Analyzing</option>
             <option value="UNDER_REVIEW">Under Review</option>
             <option value="COMPLETED">Completed</option>
+            <option value="CANCELLED">Cancelled</option>
           </select>
         </div>
       </div>
@@ -73,19 +44,26 @@ export default function InspectionsPage() {
         <>
           <div className={styles.list}>
             {inspections.map((inspection) => (
-              <div key={inspection.id} className={styles.card}>
+              <Link
+                href={`/app/inspections/${inspection.id}`}
+                key={inspection.id}
+                className={styles.card}
+              >
                 <div className={styles.cardHeader}>
                   <h3 className={styles.cardTitle}>{inspection.property?.address || "Unknown Property"}</h3>
-                  <span className={`${styles.badge} ${styles[`badge-${inspection.status.toLowerCase()}`]}`}>
+                  <span className={`${styles.badge} ${styles[`badge-${inspection.status.toLowerCase().replace(/_/g, '-')}`]}`}>
                     {inspection.status}
                   </span>
                 </div>
                 <div className={styles.cardMeta}>
                   <span className={styles.metaItem}>Type: {inspection.type}</span>
                   <span className={styles.metaItem}>Analysis: {inspection.analysisStatus}</span>
+                  {inspection.submittedAt && (
+                    <span className={styles.metaItem}>Submitted: {new Date(inspection.submittedAt).toLocaleDateString()}</span>
+                  )}
                   <span className={styles.metaItem}>Created: {new Date(inspection.createdAt).toLocaleDateString()}</span>
                 </div>
-              </div>
+              </Link>
             ))}
           </div>
 

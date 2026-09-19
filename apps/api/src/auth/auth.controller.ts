@@ -47,6 +47,7 @@ export class AuthController {
 
   @Get("me")
   async me(@CurrentUser() principal: Principal) {
-    return this.auth.me(principal);
+    if (!principal.userId) throw new Error("userId required");
+    return this.auth.me({ userId: principal.userId });
   }
 }

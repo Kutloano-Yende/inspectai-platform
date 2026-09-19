@@ -1,0 +1,127 @@
+.overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.7);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: var(--spacing-md);
+}
+
+.dialog {
+  background: var(--color-surface-primary);
+  border: none;
+  border-radius: 8px;
+  padding: 0;
+  width: 100%;
+  max-width: 900px;
+  max-height: 90vh;
+  overflow: auto;
+  position: relative;
+}
+
+.closeBtn {
+  position: absolute;
+  top: var(--spacing-md);
+  right: var(--spacing-md);
+  background: var(--color-bg-secondary);
+  border: none;
+  border-radius: 50%;
+  width: 32px;
+  height: 32px;
+  cursor: pointer;
+  font-size: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10;
+}
+
+.closeBtn:hover {
+  background: var(--color-border-secondary);
+}
+
+.content {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 400px;
+  background: var(--color-bg-secondary);
+  padding: var(--spacing-md);
+}
+
+.image,
+.video {
+  max-width: 100%;
+  max-height: 600px;
+  object-fit: contain;
+}
+
+.expiredMessage,
+.errorMessage {
+  text-align: center;
+  padding: var(--spacing-lg);
+}
+
+.expiredMessage p,
+.errorMessage p {
+  margin: var(--spacing-sm) 0;
+  color: var(--color-text-secondary);
+}
+
+.metadata {
+  padding: var(--spacing-md);
+  border-top: 1px solid var(--color-border-primary);
+  font-size: 13px;
+}
+
+.metaRow {
+  display: flex;
+  justify-content: space-between;
+  padding: var(--spacing-xs) 0;
+}
+
+.label {
+  color: var(--color-text-secondary);
+  font-weight: 500;
+}
+
+.value {
+  color: var(--color-text-primary);
+  font-family: monospace;
+}
+
+.verification,
+.gps {
+  margin-top: var(--spacing-md);
+  padding-top: var(--spacing-md);
+  border-top: 1px solid var(--color-border-primary);
+}
+
+.verification h4,
+.gps h4 {
+  margin: 0 0 var(--spacing-xs) 0;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--color-text-primary);
+  text-transform: uppercase;
+}
+
+.verification ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.verification li {
+  padding: 2px 0;
+  color: var(--color-text-secondary);
+  font-size: 12px;
+}
+
+.gps p {
+  margin: 4px 0;
+  color: var(--color-text-secondary);
+  font-size: 12px;
+}

@@ -1,0 +1,23 @@
+/*
+ * Shared design tokens for the public landing page.
+ * CSS custom properties cascade through the DOM regardless of which
+ * CSS Module declares them, so every landing/*.module.css file can
+ * reference var(--blue) etc. once .landingRoot wraps the page.
+ */
+.landingRoot {
+  --blue: #006ead;
+  --blue-dark: #00537f;
+  --blue-light: #eaf5fb;
+  --navy: #0f2742;
+  --background: #f8fafc;
+  --white: #ffffff;
+  --text: #172b4d;
+  --muted: #64748b;
+  --success: #168a70;
+  --success-light: #e3f6f1;
+  --border: #e2e8f0;
+
+  background: var(--white);
+  color: var(--text);
+  overflow-x: hidden;
+}

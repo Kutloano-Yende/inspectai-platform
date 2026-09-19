@@ -43,7 +43,7 @@ export class InspectionService {
     await this.audit.record({
       organizationId: tenancy.organizationId,
       actorType: "USER",
-      actorUserId: principal.userId,
+      actorUserId: principal.userId ?? null,
       action: AuditAction.InspectionCreated,
       entityType: "Inspection",
       entityId: row.id,
@@ -150,7 +150,7 @@ export class InspectionService {
     await this.audit.record({
       organizationId: row.organizationId,
       actorType: principal.type === "user" ? "USER" : "INVITATION_TOKEN",
-      actorUserId: principal.type === "user" ? principal.userId : undefined,
+      actorUserId: principal.type === "user" ? principal.userId ?? null : null,
       action: AuditAction.InspectionSubmitted,
       entityType: "Inspection",
       entityId: row.id,
@@ -199,7 +199,7 @@ export class InspectionService {
     await this.audit.record({
       organizationId: row.organizationId,
       actorType: "USER",
-      actorUserId: principal.userId,
+      actorUserId: principal.userId ?? null,
       action: AuditAction.AnalysisRequested,
       entityType: "Inspection",
       entityId: row.id,
@@ -246,7 +246,7 @@ export class InspectionService {
       await this.audit.record({
         organizationId: row.organizationId,
         actorType: "USER",
-        actorUserId: principal.userId!,
+        actorUserId: principal.userId ?? null,
         action: AuditAction.ReviewSubmitted,
         entityType: "InspectionReview",
         entityId: review.id,
@@ -316,7 +316,7 @@ export class InspectionService {
         contentSha256: dto.contentSha256,
         bytes: dto.contentLengthBytes,
         capturedAt: new Date(dto.capturedAt),
-        gps: dto.gps || null,
+        gps: (dto.gps || null) as unknown as Prisma.InputJsonValue,
         verification: { freshnessVerified: false, duplicateDetected: false, qualityAcceptable: false },
       },
     });
@@ -331,7 +331,7 @@ export class InspectionService {
     await this.audit.record({
       organizationId: inspection.organizationId,
       actorType: principal.type === "user" ? "USER" : "INVITATION_TOKEN",
-      actorUserId: principal.type === "user" ? principal.userId : undefined,
+      actorUserId: principal.type === "user" ? principal.userId ?? null : null,
       action: AuditAction.EvidenceUploadTicketIssued,
       entityType: "Evidence",
       entityId: evidence.id,
@@ -398,7 +398,7 @@ export class InspectionService {
     await this.audit.record({
       organizationId: evidence.inspection.organizationId,
       actorType: principal.type === "user" ? "USER" : "INVITATION_TOKEN",
-      actorUserId: principal.type === "user" ? principal.userId : undefined,
+      actorUserId: principal.type === "user" ? principal.userId ?? null : null,
       action: AuditAction.EvidenceCommitted,
       entityType: "Evidence",
       entityId: evidence.id,

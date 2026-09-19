@@ -17,7 +17,7 @@ export class PortfolioService {
 
   /** List properties across the principal's organizations (never another org's). */
   async listProperties(principal: Principal) {
-    const orgIds = principal.memberships.map((m) => m.organizationId);
+    const orgIds = (principal.memberships || []).map((m) => m.organizationId);
     const rows = await this.prisma.property.findMany({
       where: { organizationId: { in: orgIds } },
       orderBy: { createdAt: "desc" },
@@ -45,7 +45,7 @@ export class PortfolioService {
     await this.audit.record({
       organizationId,
       actorType: "USER",
-      actorUserId: principal.userId,
+      actorUserId: principal.userId ?? null,
       action: AuditAction.PropertyCreated,
       entityType: "Property",
       entityId: row.id,
@@ -77,7 +77,7 @@ export class PortfolioService {
     await this.audit.record({
       organizationId: property.organizationId,
       actorType: "USER",
-      actorUserId: principal.userId,
+      actorUserId: principal.userId ?? null,
       action: AuditAction.UnitCreated,
       entityType: "Unit",
       entityId: row.id,

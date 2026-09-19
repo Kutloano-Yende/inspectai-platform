@@ -1,0 +1,153 @@
+.navbar {
+  position: sticky;
+  top: 0;
+  z-index: 40;
+  background: rgba(255, 255, 255, 0.92);
+  backdrop-filter: blur(10px);
+  border-bottom: 1px solid var(--border);
+}
+
+.container {
+  width: min(1180px, calc(100% - 48px));
+  margin: 0 auto;
+}
+
+.nav {
+  display: flex;
+  align-items: center;
+  gap: 32px;
+  min-height: 72px;
+}
+
+.brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+  color: var(--navy);
+  font-size: 18px;
+  font-weight: 750;
+  letter-spacing: -0.03em;
+  text-decoration: none;
+}
+
+.brandMark {
+  width: 26px;
+  height: 26px;
+  color: var(--blue);
+  flex-shrink: 0;
+}
+
+.links {
+  display: flex;
+  align-items: center;
+  gap: 26px;
+  flex: 1;
+  justify-content: center;
+}
+
+.links a {
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 550;
+  text-decoration: none;
+  transition: color 150ms ease;
+}
+
+.links a:hover,
+.links a:focus-visible {
+  color: var(--navy);
+}
+
+.actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
+}
+
+.signIn {
+  padding: 9px 16px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--white);
+  color: var(--navy);
+  font-size: 13px;
+  font-weight: 650;
+  text-decoration: none;
+  transition: 150ms ease;
+}
+
+.signIn:hover,
+.signIn:focus-visible {
+  border-color: #c4dcea;
+  background: var(--blue-light);
+}
+
+.getStarted {
+  padding: 9px 18px;
+  border-radius: 8px;
+  background: var(--blue);
+  color: var(--white);
+  font-size: 13px;
+  font-weight: 650;
+  text-decoration: none;
+  transition: 150ms ease;
+}
+
+.getStarted:hover,
+.getStarted:focus-visible {
+  background: var(--blue-dark);
+}
+
+.menuToggle {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 38px;
+  margin-left: auto;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--white);
+  color: var(--navy);
+}
+
+.mobileNav {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 12px 24px 20px;
+  border-top: 1px solid var(--border);
+  background: var(--white);
+}
+
+.mobileNav a {
+  padding: 10px 4px;
+  color: var(--text);
+  font-size: 14px;
+  font-weight: 550;
+  text-decoration: none;
+}
+
+.mobileActions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.mobileActions a {
+  text-align: center;
+}
+
+@media (max-width: 860px) {
+  .links,
+  .actions {
+    display: none;
+  }
+
+  .menuToggle {
+    display: inline-flex;
+  }
+}

@@ -34,7 +34,7 @@ export class TenancyService {
     await this.audit.record({
       organizationId: unit.organizationId,
       actorType: "USER",
-      actorUserId: principal.userId,
+      actorUserId: principal.userId ?? null,
       action: AuditAction.TenancyCreated,
       entityType: "Tenancy",
       entityId: row.id,
@@ -81,7 +81,7 @@ export class TenancyService {
     await this.audit.record({
       organizationId: tenancy.organizationId,
       actorType: "USER",
-      actorUserId: principal.userId,
+      actorUserId: principal.userId ?? null,
       action: AuditAction.InvitationCreated,
       entityType: "TenantInvitation",
       entityId: row.id,
@@ -108,7 +108,7 @@ export class TenancyService {
     await this.audit.record({
       organizationId: row.organizationId,
       actorType: "USER",
-      actorUserId: principal.userId,
+      actorUserId: principal.userId ?? null,
       action: AuditAction.InvitationRevoked,
       entityType: "TenantInvitation",
       entityId: row.id,

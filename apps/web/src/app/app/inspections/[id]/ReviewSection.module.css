@@ -1,0 +1,96 @@
+.section {
+  margin-bottom: var(--spacing-xl);
+}
+
+.section h2 {
+  margin: 0 0 var(--spacing-md) 0;
+  font-size: 18px;
+  color: var(--color-text-primary);
+}
+
+.empty {
+  padding: var(--spacing-md);
+  background: var(--color-bg-secondary);
+  border-radius: 6px;
+  color: var(--color-text-secondary);
+  font-size: 14px;
+}
+
+.reviewContainer {
+  border: 1px solid var(--color-border-primary);
+  border-radius: 6px;
+  padding: var(--spacing-md);
+  background: var(--color-surface-primary);
+}
+
+.reviewedAt {
+  margin-bottom: var(--spacing-md);
+  padding-bottom: var(--spacing-md);
+  border-bottom: 1px solid var(--color-border-primary);
+  font-size: 13px;
+  color: var(--color-text-secondary);
+}
+
+.findings h3 {
+  margin: var(--spacing-md) 0 var(--spacing-sm) 0;
+  font-size: 14px;
+  color: var(--color-text-primary);
+}
+
+.findingList {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-sm);
+}
+
+.findingReview {
+  padding: var(--spacing-sm);
+  background: var(--color-bg-secondary);
+  border-radius: 4px;
+  border-left: 3px solid var(--color-border-primary);
+}
+
+.decision {
+  margin-bottom: 6px;
+}
+
+.decisionBadge {
+  font-size: 10px;
+  font-weight: 700;
+  padding: 3px 6px;
+  border-radius: 2px;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+.decision-accepted {
+  background: var(--color-bg-success-light);
+  color: var(--color-text-success);
+}
+
+.decision-amended {
+  background: var(--color-bg-info-light);
+  color: var(--color-text-info);
+}
+
+.decision-rejected {
+  background: var(--color-bg-error-light);
+  color: var(--color-text-error);
+}
+
+.amended {
+  margin: 4px 0;
+  font-size: 12px;
+  color: var(--color-text-primary);
+  font-weight: 500;
+}
+
+.notes {
+  margin: 4px 0 0 0;
+  font-size: 12px;
+  color: var(--color-text-secondary);
+  font-style: italic;
+}

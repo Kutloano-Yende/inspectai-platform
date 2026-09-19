@@ -1,4 +1,4 @@
-import { type CanActivate, type ExecutionContext, Inject, Injectable } from "@nestjs/core";
+import { type CanActivate, type ExecutionContext, Injectable } from "@nestjs/common";
 import { ForbiddenError } from "../shared/errors.js";
 import type { AuthedRequest } from "../auth/principal.js";
 

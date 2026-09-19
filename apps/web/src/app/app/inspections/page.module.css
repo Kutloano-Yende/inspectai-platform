@@ -13,9 +13,10 @@
 
 .header h1 {
   margin: 0;
-  font-size: 28px;
+  font-size: 32px;
   font-weight: 700;
   color: var(--color-text-primary);
+  letter-spacing: -0.5px;
 }
 
 .filters {
@@ -49,12 +50,17 @@
   border: 1px solid var(--color-border-primary);
   border-radius: 6px;
   padding: var(--spacing-md);
-  transition: border-color 0.2s, box-shadow 0.2s;
+  transition: all 0.2s ease;
+  cursor: pointer;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+  text-decoration: none;
+  display: block;
 }
 
 .card:hover {
-  border-color: var(--color-border-secondary);
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+  border-color: var(--color-primary);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+  transform: translateY(-1px);
 }
 
 .cardHeader {
@@ -86,6 +92,16 @@
   color: var(--color-text-secondary);
 }
 
+.badge-invited {
+  background: var(--color-bg-info-light);
+  color: var(--color-text-info);
+}
+
+.badge-in-progress {
+  background: var(--color-bg-info-light);
+  color: var(--color-text-info);
+}
+
 .badge-submitted {
   background: var(--color-bg-info-light);
   color: var(--color-text-info);
@@ -96,7 +112,7 @@
   color: var(--color-text-warning);
 }
 
-.badge-under_review {
+.badge-under-review {
   background: var(--color-bg-warning-light);
   color: var(--color-text-warning);
 }
@@ -104,6 +120,11 @@
 .badge-completed {
   background: var(--color-bg-success-light);
   color: var(--color-text-success);
+}
+
+.badge-cancelled {
+  background: var(--color-bg-secondary);
+  color: var(--color-text-secondary);
 }
 
 .cardMeta {
