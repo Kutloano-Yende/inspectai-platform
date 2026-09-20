@@ -172,6 +172,11 @@
   font-size: 11px;
 }
 
+.fieldError {
+  color: #b3423f;
+  font-size: 11px;
+}
+
 .inputWrap {
   display: flex;
   align-items: center;
@@ -187,6 +192,16 @@
 .inputWrap:focus-within {
   border-color: var(--blue);
   box-shadow: 0 0 0 3px rgba(0, 110, 173, 0.1);
+}
+
+.inputWrapError {
+  border-color: #f3d6d6;
+  background: #fdf3f3;
+}
+
+.inputWrapError:focus-within {
+  border-color: #b3423f;
+  box-shadow: 0 0 0 3px rgba(179, 66, 63, 0.1);
 }
 
 .inputWrap svg {

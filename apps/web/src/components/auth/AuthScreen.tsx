@@ -13,6 +13,7 @@ import {
   CheckmarkCircle02Icon,
 } from "@hugeicons/core-free-icons";
 import { HugeIcon } from "@/components/HugeIcon";
+import { ApiError } from "@/lib/api";
 import tokens from "@/components/landing/landing-tokens.module.css";
 import styles from "./AuthScreen.module.css";
 
@@ -28,6 +29,17 @@ interface AuthScreenProps {
   onSubmit: (fields: AuthFields) => Promise<void>;
 }
 
+/** The API's ValidationFailedError joins Zod issues as "field: message; field: message". */
+function parseFieldErrors(detail: string): Record<string, string> {
+  const fields: Record<string, string> = {};
+  for (const part of detail.split("; ")) {
+    const separator = part.indexOf(": ");
+    if (separator === -1) continue;
+    fields[part.slice(0, separator)] = part.slice(separator + 2);
+  }
+  return fields;
+}
+
 export function AuthScreen({ mode, onSubmit }: AuthScreenProps) {
   const isLogin = mode === "login";
 
@@ -39,16 +51,41 @@ export function AuthScreen({ mode, onSubmit }: AuthScreenProps) {
   const [agreeToTerms, setAgreeToTerms] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState("");
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+
+  const clearFieldError = (field: string) => {
+    setFieldErrors((prev) => {
+      if (!(field in prev)) return prev;
+      const next = { ...prev };
+      delete next[field];
+      return next;
+    });
+  };
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     setError("");
-    setIsSubmitting(true);
+    setFieldErrors({});
 
+    if (!isLogin && !agreeToTerms) {
+      setError("Please agree to the Terms of Service and Privacy Policy to continue.");
+      return;
+    }
+
+    setIsSubmitting(true);
     try {
       await onSubmit({ organizationName, fullName, email, password });
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Something went wrong. Please try again.");
+      if (err instanceof ApiError && err.code === "VALIDATION_FAILED") {
+        const parsed = parseFieldErrors(err.message);
+        if (Object.keys(parsed).length > 0) {
+          setFieldErrors(parsed);
+        } else {
+          setError(err.message);
+        }
+      } else {
+        setError(err instanceof Error ? err.message : "Something went wrong. Please try again.");
+      }
     } finally {
       setIsSubmitting(false);
     }
@@ -114,41 +151,51 @@ export function AuthScreen({ mode, onSubmit }: AuthScreenProps) {
             </p>
           </div>
 
-          <form className={styles.form} onSubmit={handleSubmit}>
+          <form className={styles.form} onSubmit={handleSubmit} noValidate>
             {!isLogin && (
               <>
                 <label className={styles.field}>
                   <span>
                     Organisation name <span className={styles.required}>*</span>
                   </span>
-                  <div className={styles.inputWrap}>
+                  <div className={fieldErrors.organizationName ? `${styles.inputWrap} ${styles.inputWrapError}` : styles.inputWrap}>
                     <HugeIcon icon={Building06Icon} size={18} />
                     <input
                       type="text"
                       placeholder="Acme Properties"
                       value={organizationName}
-                      onChange={(e) => setOrganizationName(e.target.value)}
+                      onChange={(e) => {
+                        setOrganizationName(e.target.value);
+                        clearFieldError("organizationName");
+                      }}
                       required
+                      aria-invalid={Boolean(fieldErrors.organizationName)}
                       disabled={isSubmitting}
                     />
                   </div>
+                  {fieldErrors.organizationName && <span className={styles.fieldError}>{fieldErrors.organizationName}</span>}
                 </label>
 
                 <label className={styles.field}>
                   <span>
                     Full name <span className={styles.required}>*</span>
                   </span>
-                  <div className={styles.inputWrap}>
+                  <div className={fieldErrors.fullName ? `${styles.inputWrap} ${styles.inputWrapError}` : styles.inputWrap}>
                     <HugeIcon icon={UserIcon} size={18} />
                     <input
                       type="text"
                       placeholder="John Smith"
                       value={fullName}
-                      onChange={(e) => setFullName(e.target.value)}
+                      onChange={(e) => {
+                        setFullName(e.target.value);
+                        clearFieldError("fullName");
+                      }}
                       required
+                      aria-invalid={Boolean(fieldErrors.fullName)}
                       disabled={isSubmitting}
                     />
                   </div>
+                  {fieldErrors.fullName && <span className={styles.fieldError}>{fieldErrors.fullName}</span>}
                 </label>
               </>
             )}
@@ -157,32 +204,40 @@ export function AuthScreen({ mode, onSubmit }: AuthScreenProps) {
               <span>
                 Email <span className={styles.required}>*</span>
               </span>
-              <div className={styles.inputWrap}>
+              <div className={fieldErrors.email ? `${styles.inputWrap} ${styles.inputWrapError}` : styles.inputWrap}>
                 <HugeIcon icon={Mail01Icon} size={18} />
                 <input
                   type="email"
                   placeholder="you@company.com"
                   value={email}
-                  onChange={(e) => setEmail(e.target.value)}
+                  onChange={(e) => {
+                    setEmail(e.target.value);
+                    clearFieldError("email");
+                  }}
                   required
+                  aria-invalid={Boolean(fieldErrors.email)}
                   disabled={isSubmitting}
                 />
               </div>
+              {fieldErrors.email && <span className={styles.fieldError}>{fieldErrors.email}</span>}
             </label>
 
             <label className={styles.field}>
               <span>
                 Password <span className={styles.required}>*</span>
               </span>
-              <div className={styles.inputWrap}>
+              <div className={fieldErrors.password ? `${styles.inputWrap} ${styles.inputWrapError}` : styles.inputWrap}>
                 <HugeIcon icon={LockKeyholeIcon} size={18} />
                 <input
                   type={showPassword ? "text" : "password"}
                   placeholder={isLogin ? "Enter your password" : "Create a password"}
                   value={password}
-                  onChange={(e) => setPassword(e.target.value)}
+                  onChange={(e) => {
+                    setPassword(e.target.value);
+                    clearFieldError("password");
+                  }}
                   required
-                  minLength={isLogin ? undefined : 10}
+                  aria-invalid={Boolean(fieldErrors.password)}
                   disabled={isSubmitting}
                 />
                 <button
@@ -194,7 +249,11 @@ export function AuthScreen({ mode, onSubmit }: AuthScreenProps) {
                   <HugeIcon icon={showPassword ? EyeOffIcon : EyeIcon} size={18} />
                 </button>
               </div>
-              {!isLogin && <span className={styles.hint}>At least 10 characters.</span>}
+              {fieldErrors.password ? (
+                <span className={styles.fieldError}>{fieldErrors.password}</span>
+              ) : (
+                !isLogin && <span className={styles.hint}>At least 10 characters.</span>
+              )}
             </label>
 
             {!isLogin && (
