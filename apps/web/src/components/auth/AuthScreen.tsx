@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useState, type FormEvent } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 import {
   Mail01Icon,
   LockKeyholeIcon,
@@ -13,7 +13,7 @@ import {
   CheckmarkCircle02Icon,
 } from "@hugeicons/core-free-icons";
 import { HugeIcon } from "@/components/HugeIcon";
-import { ApiError } from "@/lib/api";
+import { API_URL, ApiError } from "@/lib/api";
 import tokens from "@/components/landing/landing-tokens.module.css";
 import styles from "./AuthScreen.module.css";
 
@@ -27,6 +27,8 @@ export interface AuthFields {
 interface AuthScreenProps {
   mode: "login" | "signup";
   onSubmit: (fields: AuthFields) => Promise<void>;
+  /** Seeds the error banner, e.g. from a ?error= query param after an OAuth redirect. */
+  initialError?: string | undefined;
 }
 
 /** The API's ValidationFailedError joins Zod issues as "field: message; field: message". */
@@ -40,7 +42,7 @@ function parseFieldErrors(detail: string): Record<string, string> {
   return fields;
 }
 
-export function AuthScreen({ mode, onSubmit }: AuthScreenProps) {
+export function AuthScreen({ mode, onSubmit, initialError }: AuthScreenProps) {
   const isLogin = mode === "login";
 
   const [organizationName, setOrganizationName] = useState("");
@@ -50,8 +52,24 @@ export function AuthScreen({ mode, onSubmit }: AuthScreenProps) {
   const [showPassword, setShowPassword] = useState(false);
   const [agreeToTerms, setAgreeToTerms] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [error, setError] = useState("");
+  const [error, setError] = useState(initialError || "");
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+  const [googleEnabled, setGoogleEnabled] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch(`${API_URL}/auth/providers`)
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data: { google?: boolean } | null) => {
+        if (!cancelled && data) setGoogleEnabled(Boolean(data.google));
+      })
+      .catch(() => {
+        // Leave Google disabled if the provider status can't be reached.
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const clearFieldError = (field: string) => {
     setFieldErrors((prev) => {
@@ -288,9 +306,15 @@ export function AuthScreen({ mode, onSubmit }: AuthScreenProps) {
           </div>
 
           <div className={styles.social}>
-            <button type="button" disabled aria-disabled="true" title="Coming soon">
-              Google
-            </button>
+            {googleEnabled ? (
+              <a href={`${API_URL}/auth/google`} className={styles.socialLink}>
+                Google
+              </a>
+            ) : (
+              <button type="button" disabled aria-disabled="true" title="Coming soon">
+                Google
+              </button>
+            )}
             <button type="button" disabled aria-disabled="true" title="Coming soon">
               Apple
             </button>
@@ -298,7 +322,7 @@ export function AuthScreen({ mode, onSubmit }: AuthScreenProps) {
               Microsoft
             </button>
           </div>
-          <p className={styles.socialNote}>Social sign-in is coming soon.</p>
+          {!googleEnabled && <p className={styles.socialNote}>Social sign-in is coming soon.</p>}
 
           <p className={styles.switch}>
             {isLogin ? "Don't have an account? " : "Already have an account? "}

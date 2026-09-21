@@ -3,13 +3,25 @@ import type { Request, Response } from "express";
 import { LoginRequest, RegisterRequest } from "@inspectai/contracts";
 import { ZodValidationPipe } from "../shared/zod.pipe.js";
 import { AuthService } from "./auth.service.js";
-import { clearedSessionCookie, readCookie, sessionCookie, SESSION_COOKIE } from "./auth.guard.js";
+import {
+  clearedOauthStateCookie,
+  clearedSessionCookie,
+  oauthStateCookie,
+  OAUTH_STATE_COOKIE,
+  readCookie,
+  sessionCookie,
+  SESSION_COOKIE,
+} from "./auth.guard.js";
+import { GoogleOAuthService } from "./google-oauth.service.js";
 import { CurrentUser, type Principal } from "./principal.js";
 import { Public } from "./public.decorator.js";
 
 @Controller("auth")
 export class AuthController {
-  constructor(@Inject(AuthService) private readonly auth: AuthService) {}
+  constructor(
+    @Inject(AuthService) private readonly auth: AuthService,
+    @Inject(GoogleOAuthService) private readonly googleOAuth: GoogleOAuthService,
+  ) {}
 
   @Public()
   @Post("register")
@@ -49,5 +61,44 @@ export class AuthController {
   async me(@CurrentUser() principal: Principal) {
     if (!principal.userId) throw new Error("userId required");
     return this.auth.me({ userId: principal.userId });
+  }
+
+  @Public()
+  @Get("providers")
+  providers() {
+    return { google: this.googleOAuth.isConfigured() };
+  }
+
+  @Public()
+  @Get("google")
+  async googleStart(@Res() res: Response) {
+    const { url, state } = this.googleOAuth.buildAuthorizationRequest();
+    res.setHeader("Set-Cookie", oauthStateCookie(state));
+    res.redirect(url);
+  }
+
+  @Public()
+  @Get("google/callback")
+  async googleCallback(@Req() req: Request, @Res() res: Response) {
+    const webAppUrl = process.env.WEB_APP_URL || "http://localhost:3000";
+    const code = req.query.code as string | undefined;
+    const state = req.query.state as string | undefined;
+    const cookieState = readCookie(req, OAUTH_STATE_COOKIE);
+
+    if (!code || !state || !cookieState || state !== cookieState) {
+      res.setHeader("Set-Cookie", clearedOauthStateCookie());
+      res.redirect(`${webAppUrl}/login?error=oauth_failed`);
+      return;
+    }
+
+    try {
+      const profile = await this.googleOAuth.exchangeCodeForProfile(code);
+      const result = await this.auth.loginOrRegisterWithGoogle(profile);
+      res.setHeader("Set-Cookie", [clearedOauthStateCookie(), sessionCookie(result.sessionToken)]);
+      res.redirect(`${webAppUrl}/app/inspections`);
+    } catch {
+      res.setHeader("Set-Cookie", clearedOauthStateCookie());
+      res.redirect(`${webAppUrl}/login?error=oauth_failed`);
+    }
   }
 }

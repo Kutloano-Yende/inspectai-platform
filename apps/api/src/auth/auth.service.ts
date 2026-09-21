@@ -57,8 +57,8 @@ export class AuthService {
   }
 
   async login(dto: LoginRequest) {    const user = await this.prisma.user.findUnique({ where: { email: dto.email.toLowerCase() } });
-    // Same generic error for unknown email and wrong password.
-    if (!user || !verifyPassword(dto.password, user.passwordHash)) {
+    // Same generic error for unknown email, OAuth-only accounts (no password set) and wrong password.
+    if (!user || !user.passwordHash || !verifyPassword(dto.password, user.passwordHash)) {
       throw new UnauthorizedError("INVALID_CREDENTIALS", "Email or password is incorrect");
     }
     const token = await this.createSession(this.prisma, user.id);
@@ -73,6 +73,52 @@ export class AuthService {
       user: { id: user.id, email: user.email, fullName: user.fullName, mfaEnabled: false, createdAt: user.createdAt },
       sessionToken: token,
     };
+  }
+
+  /**
+   * Signs in a user via a verified Google identity, linking or creating an account as needed:
+   * - Existing googleId -> sign in.
+   * - Existing email (password account) -> link the Google identity, then sign in.
+   * - Neither -> create a new organization + user, same as register().
+   */
+  async loginOrRegisterWithGoogle(profile: { googleId: string; email: string; fullName: string }) {
+    const email = profile.email.toLowerCase();
+
+    const byGoogleId = await this.prisma.user.findUnique({ where: { googleId: profile.googleId } });
+    if (byGoogleId) {
+      const token = await this.createSession(this.prisma, byGoogleId.id);
+      return { userId: byGoogleId.id, sessionToken: token, isNewAccount: false };
+    }
+
+    const byEmail = await this.prisma.user.findUnique({ where: { email } });
+    if (byEmail) {
+      await this.prisma.user.update({ where: { id: byEmail.id }, data: { googleId: profile.googleId } });
+      const token = await this.createSession(this.prisma, byEmail.id);
+      return { userId: byEmail.id, sessionToken: token, isNewAccount: false };
+    }
+
+    const result = await this.prisma.$transaction(async (tx) => {
+      const organization = await tx.organization.create({ data: { name: `${profile.fullName}'s Organization` } });
+      const user = await tx.user.create({
+        data: { email, googleId: profile.googleId, fullName: profile.fullName },
+      });
+      await tx.organizationMembership.create({
+        data: { userId: user.id, organizationId: organization.id, role: "OWNER" },
+      });
+      const session = await this.createSession(tx, user.id);
+      return { organization, user, sessionToken: session };
+    });
+
+    await this.audit.record({
+      organizationId: result.organization.id,
+      actorType: "USER",
+      actorUserId: result.user.id,
+      action: AuditAction.UserRegisteredOrg,
+      entityType: "Organization",
+      entityId: result.organization.id,
+    });
+
+    return { userId: result.user.id, sessionToken: result.sessionToken, isNewAccount: true };
   }
 
   async logout(token: string): Promise<void> {

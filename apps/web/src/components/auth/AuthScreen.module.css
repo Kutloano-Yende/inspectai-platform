@@ -326,6 +326,26 @@
   opacity: 0.6;
 }
 
+.socialLink {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 42px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--white);
+  color: var(--navy);
+  font-size: 12px;
+  font-weight: 600;
+  text-decoration: none;
+  transition: border-color 150ms ease, background 150ms ease;
+}
+
+.socialLink:hover {
+  border-color: var(--blue);
+  background: var(--blue-light);
+}
+
 .socialNote {
   margin: 8px 0 0;
   color: var(--muted);

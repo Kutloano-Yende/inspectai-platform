@@ -94,3 +94,14 @@ export function sessionCookie(token: string): string {
 export function clearedSessionCookie(): string {
   return `${SESSION_COOKIE}=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0`;
 }
+
+export const OAUTH_STATE_COOKIE = "inspectai_oauth_state";
+
+/** Short-lived CSRF-state cookie for the Google OAuth round trip. */
+export function oauthStateCookie(state: string): string {
+  return `${OAUTH_STATE_COOKIE}=${encodeURIComponent(state)}; Path=/; HttpOnly; SameSite=Lax; Max-Age=600`;
+}
+
+export function clearedOauthStateCookie(): string {
+  return `${OAUTH_STATE_COOKIE}=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0`;
+}
