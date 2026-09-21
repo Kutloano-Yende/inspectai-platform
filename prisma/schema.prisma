@@ -29,6 +29,7 @@ model User {
   passwordHash  String?
   googleId      String?  @unique
   appleId       String?  @unique
+  microsoftId   String?  @unique
   fullName      String
   createdAt     DateTime @default(now())
 

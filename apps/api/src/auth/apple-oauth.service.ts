@@ -1,7 +1,8 @@
 import { HttpStatus, Injectable } from "@nestjs/common";
-import { createPrivateKey, createPublicKey, createSign, createVerify, type JsonWebKey } from "node:crypto";
+import { createPrivateKey, createSign } from "node:crypto";
 import { generateToken } from "../shared/crypto.js";
 import { ProblemError } from "../shared/errors.js";
+import { verifyRs256Jwt } from "../shared/oidc-jwt.js";
 
 const AUTHORIZATION_ENDPOINT = "https://appleid.apple.com/auth/authorize";
 const TOKEN_ENDPOINT = "https://appleid.apple.com/auth/token";
@@ -58,44 +59,21 @@ interface AppleIdTokenClaims {
   sub: string;
   email?: string;
   email_verified?: string | boolean;
-  aud: string;
-  iss: string;
-  exp: number;
 }
 
 /** Verifies Apple's signed ID token against Apple's live JWKS — no trust without a valid signature. */
 async function verifyIdToken(idToken: string, config: AppleConfig): Promise<AppleIdTokenClaims> {
-  const parts = idToken.split(".");
-  if (parts.length !== 3) {
-    throw new ProblemError("OAUTH_EXCHANGE_FAILED", HttpStatus.BAD_GATEWAY, "Could not complete Apple sign-in");
-  }
-  const [headerB64, payloadB64, signatureB64] = parts as [string, string, string];
-  const header = JSON.parse(Buffer.from(headerB64, "base64url").toString("utf8")) as { kid?: string; alg?: string };
-
-  const jwksRes = await fetch(KEYS_ENDPOINT);
-  if (!jwksRes.ok) {
-    throw new ProblemError("OAUTH_EXCHANGE_FAILED", HttpStatus.BAD_GATEWAY, "Could not complete Apple sign-in");
-  }
-  const { keys } = (await jwksRes.json()) as { keys: (JsonWebKey & { kid: string })[] };
-  const jwk = keys.find((k) => k.kid === header.kid);
-  if (!jwk || header.alg !== "RS256") {
-    throw new ProblemError("OAUTH_EXCHANGE_FAILED", HttpStatus.BAD_GATEWAY, "Could not complete Apple sign-in");
-  }
-
-  const publicKey = createPublicKey({ key: jwk, format: "jwk" });
-  const signingInput = `${headerB64}.${payloadB64}`;
-  const signature = Buffer.from(signatureB64, "base64url");
-  const valid = createVerify("RSA-SHA256").update(signingInput).verify(publicKey, signature);
-  if (!valid) {
-    throw new ProblemError("OAUTH_EXCHANGE_FAILED", HttpStatus.BAD_GATEWAY, "Could not verify Apple sign-in");
-  }
-
-  const claims = JSON.parse(Buffer.from(payloadB64, "base64url").toString("utf8")) as AppleIdTokenClaims;
-  if (claims.iss !== ISSUER || claims.aud !== config.servicesId || claims.exp < Math.floor(Date.now() / 1000)) {
-    throw new ProblemError("OAUTH_EXCHANGE_FAILED", HttpStatus.BAD_GATEWAY, "Could not verify Apple sign-in");
-  }
-
-  return claims;
+  const claims = await verifyRs256Jwt(idToken, {
+    jwksUrl: KEYS_ENDPOINT,
+    errorCode: "OAUTH_EXCHANGE_FAILED",
+    errorDetail: "Could not verify Apple sign-in",
+    validateClaims: (c) => {
+      if (c.iss !== ISSUER || c.aud !== config.servicesId) {
+        throw new ProblemError("OAUTH_EXCHANGE_FAILED", HttpStatus.BAD_GATEWAY, "Could not verify Apple sign-in");
+      }
+    },
+  });
+  return claims as unknown as AppleIdTokenClaims;
 }
 
 @Injectable()

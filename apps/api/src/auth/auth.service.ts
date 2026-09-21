@@ -95,14 +95,24 @@ export class AuthService {
     });
   }
 
+  /** Signs in a user via a verified Microsoft identity, linking or creating an account as needed. */
+  async loginOrRegisterWithMicrosoft(profile: { microsoftId: string; email: string; fullName: string }) {
+    return this.loginOrRegisterWithOAuth({
+      field: "microsoftId",
+      providerId: profile.microsoftId,
+      email: profile.email,
+      fullName: profile.fullName,
+    });
+  }
+
   /**
-   * Shared behind Google/Apple sign-in:
+   * Shared behind Google/Apple/Microsoft sign-in:
    * - Existing account with this provider id -> sign in.
    * - Existing email (password or other-provider account) -> link this provider id, then sign in.
    * - Neither -> create a new organization + user, same as register().
    */
   private async loginOrRegisterWithOAuth(params: {
-    field: "googleId" | "appleId";
+    field: "googleId" | "appleId" | "microsoftId";
     providerId: string;
     email: string;
     fullName: string;
@@ -128,7 +138,9 @@ export class AuthService {
         data: {
           email,
           fullName: params.fullName,
-          ...(params.field === "googleId" ? { googleId: params.providerId } : { appleId: params.providerId }),
+          ...(params.field === "googleId" && { googleId: params.providerId }),
+          ...(params.field === "appleId" && { appleId: params.providerId }),
+          ...(params.field === "microsoftId" && { microsoftId: params.providerId }),
         },
       });
       await tx.organizationMembership.create({
@@ -150,17 +162,19 @@ export class AuthService {
     return { userId: result.user.id, sessionToken: result.sessionToken, isNewAccount: true };
   }
 
-  private async findByProviderId(field: "googleId" | "appleId", value: string) {
-    return field === "googleId"
-      ? this.prisma.user.findUnique({ where: { googleId: value } })
-      : this.prisma.user.findUnique({ where: { appleId: value } });
+  private async findByProviderId(field: "googleId" | "appleId" | "microsoftId", value: string) {
+    if (field === "googleId") return this.prisma.user.findUnique({ where: { googleId: value } });
+    if (field === "appleId") return this.prisma.user.findUnique({ where: { appleId: value } });
+    return this.prisma.user.findUnique({ where: { microsoftId: value } });
   }
 
-  private async linkProviderId(field: "googleId" | "appleId", userId: string, value: string): Promise<void> {
+  private async linkProviderId(field: "googleId" | "appleId" | "microsoftId", userId: string, value: string): Promise<void> {
     if (field === "googleId") {
       await this.prisma.user.update({ where: { id: userId }, data: { googleId: value } });
-    } else {
+    } else if (field === "appleId") {
       await this.prisma.user.update({ where: { id: userId }, data: { appleId: value } });
+    } else {
+      await this.prisma.user.update({ where: { id: userId }, data: { microsoftId: value } });
     }
   }
 

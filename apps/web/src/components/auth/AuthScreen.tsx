@@ -56,15 +56,17 @@ export function AuthScreen({ mode, onSubmit, initialError }: AuthScreenProps) {
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [googleEnabled, setGoogleEnabled] = useState(false);
   const [appleEnabled, setAppleEnabled] = useState(false);
+  const [microsoftEnabled, setMicrosoftEnabled] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
     fetch(`${API_URL}/auth/providers`)
       .then((res) => (res.ok ? res.json() : null))
-      .then((data: { google?: boolean; apple?: boolean } | null) => {
+      .then((data: { google?: boolean; apple?: boolean; microsoft?: boolean } | null) => {
         if (!cancelled && data) {
           setGoogleEnabled(Boolean(data.google));
           setAppleEnabled(Boolean(data.apple));
+          setMicrosoftEnabled(Boolean(data.microsoft));
         }
       })
       .catch(() => {
@@ -328,11 +330,19 @@ export function AuthScreen({ mode, onSubmit, initialError }: AuthScreenProps) {
                 Apple
               </button>
             )}
-            <button type="button" disabled aria-disabled="true" title="Coming soon">
-              Microsoft
-            </button>
+            {microsoftEnabled ? (
+              <a href={`${API_URL}/auth/microsoft`} className={styles.socialLink}>
+                Microsoft
+              </a>
+            ) : (
+              <button type="button" disabled aria-disabled="true" title="Coming soon">
+                Microsoft
+              </button>
+            )}
           </div>
-          {!googleEnabled && !appleEnabled && <p className={styles.socialNote}>Social sign-in is coming soon.</p>}
+          {!googleEnabled && !appleEnabled && !microsoftEnabled && (
+            <p className={styles.socialNote}>Social sign-in is coming soon.</p>
+          )}
 
           <p className={styles.switch}>
             {isLogin ? "Don't have an account? " : "Already have an account? "}

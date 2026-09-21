@@ -5,11 +5,12 @@ import { AuthService } from "./auth.service.js";
 import { AuthGuard } from "./auth.guard.js";
 import { GoogleOAuthService } from "./google-oauth.service.js";
 import { AppleOAuthService } from "./apple-oauth.service.js";
+import { MicrosoftOAuthService } from "./microsoft-oauth.service.js";
 
 @Module({
   imports: [AuditModule],
   controllers: [AuthController],
-  providers: [AuthService, AuthGuard, GoogleOAuthService, AppleOAuthService],
+  providers: [AuthService, AuthGuard, GoogleOAuthService, AppleOAuthService, MicrosoftOAuthService],
   exports: [AuthService, AuthGuard],
 })
 export class AuthModule {}

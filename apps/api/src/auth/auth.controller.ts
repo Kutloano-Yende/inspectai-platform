@@ -14,6 +14,7 @@ import {
 } from "./auth.guard.js";
 import { GoogleOAuthService } from "./google-oauth.service.js";
 import { AppleOAuthService } from "./apple-oauth.service.js";
+import { MicrosoftOAuthService } from "./microsoft-oauth.service.js";
 import { CurrentUser, type Principal } from "./principal.js";
 import { Public } from "./public.decorator.js";
 
@@ -23,6 +24,7 @@ export class AuthController {
     @Inject(AuthService) private readonly auth: AuthService,
     @Inject(GoogleOAuthService) private readonly googleOAuth: GoogleOAuthService,
     @Inject(AppleOAuthService) private readonly appleOAuth: AppleOAuthService,
+    @Inject(MicrosoftOAuthService) private readonly microsoftOAuth: MicrosoftOAuthService,
   ) {}
 
   @Public()
@@ -68,7 +70,11 @@ export class AuthController {
   @Public()
   @Get("providers")
   providers() {
-    return { google: this.googleOAuth.isConfigured(), apple: this.appleOAuth.isConfigured() };
+    return {
+      google: this.googleOAuth.isConfigured(),
+      apple: this.appleOAuth.isConfigured(),
+      microsoft: this.microsoftOAuth.isConfigured(),
+    };
   }
 
   @Public()
@@ -134,6 +140,39 @@ export class AuthController {
     try {
       const profile = await this.appleOAuth.exchangeCodeForProfile(code, user);
       const result = await this.auth.loginOrRegisterWithApple(profile);
+      res.setHeader("Set-Cookie", [clearedOauthStateCookie(), sessionCookie(result.sessionToken)]);
+      res.redirect(`${webAppUrl}/app/inspections`);
+    } catch {
+      res.setHeader("Set-Cookie", clearedOauthStateCookie());
+      res.redirect(`${webAppUrl}/login?error=oauth_failed`);
+    }
+  }
+
+  @Public()
+  @Get("microsoft")
+  async microsoftStart(@Res() res: Response) {
+    const { url, state } = this.microsoftOAuth.buildAuthorizationRequest();
+    res.setHeader("Set-Cookie", oauthStateCookie(state));
+    res.redirect(url);
+  }
+
+  @Public()
+  @Get("microsoft/callback")
+  async microsoftCallback(@Req() req: Request, @Res() res: Response) {
+    const webAppUrl = process.env.WEB_APP_URL || "http://localhost:3000";
+    const code = req.query.code as string | undefined;
+    const state = req.query.state as string | undefined;
+    const cookieState = readCookie(req, OAUTH_STATE_COOKIE);
+
+    if (!code || !state || !cookieState || state !== cookieState) {
+      res.setHeader("Set-Cookie", clearedOauthStateCookie());
+      res.redirect(`${webAppUrl}/login?error=oauth_failed`);
+      return;
+    }
+
+    try {
+      const profile = await this.microsoftOAuth.exchangeCodeForProfile(code);
+      const result = await this.auth.loginOrRegisterWithMicrosoft(profile);
       res.setHeader("Set-Cookie", [clearedOauthStateCookie(), sessionCookie(result.sessionToken)]);
       res.redirect(`${webAppUrl}/app/inspections`);
     } catch {
