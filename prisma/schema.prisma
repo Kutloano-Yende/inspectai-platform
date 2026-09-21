@@ -28,6 +28,7 @@ model User {
   email         String   @unique
   passwordHash  String?
   googleId      String?  @unique
+  appleId       String?  @unique
   fullName      String
   createdAt     DateTime @default(now())
 

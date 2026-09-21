@@ -8,7 +8,7 @@ import { AuthScreen, type AuthFields } from "@/components/auth/AuthScreen";
 function LoginScreen() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const initialError = searchParams.get("error") === "oauth_failed" ? "Google sign-in didn't go through. Please try again." : undefined;
+  const initialError = searchParams.get("error") === "oauth_failed" ? "Sign-in didn't go through. Please try again." : undefined;
 
   const handleSubmit = async ({ email, password }: AuthFields) => {
     await fetchApi("/auth/login", {

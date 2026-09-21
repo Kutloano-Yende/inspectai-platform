@@ -13,6 +13,7 @@ import {
   SESSION_COOKIE,
 } from "./auth.guard.js";
 import { GoogleOAuthService } from "./google-oauth.service.js";
+import { AppleOAuthService } from "./apple-oauth.service.js";
 import { CurrentUser, type Principal } from "./principal.js";
 import { Public } from "./public.decorator.js";
 
@@ -21,6 +22,7 @@ export class AuthController {
   constructor(
     @Inject(AuthService) private readonly auth: AuthService,
     @Inject(GoogleOAuthService) private readonly googleOAuth: GoogleOAuthService,
+    @Inject(AppleOAuthService) private readonly appleOAuth: AppleOAuthService,
   ) {}
 
   @Public()
@@ -66,7 +68,7 @@ export class AuthController {
   @Public()
   @Get("providers")
   providers() {
-    return { google: this.googleOAuth.isConfigured() };
+    return { google: this.googleOAuth.isConfigured(), apple: this.appleOAuth.isConfigured() };
   }
 
   @Public()
@@ -94,6 +96,44 @@ export class AuthController {
     try {
       const profile = await this.googleOAuth.exchangeCodeForProfile(code);
       const result = await this.auth.loginOrRegisterWithGoogle(profile);
+      res.setHeader("Set-Cookie", [clearedOauthStateCookie(), sessionCookie(result.sessionToken)]);
+      res.redirect(`${webAppUrl}/app/inspections`);
+    } catch {
+      res.setHeader("Set-Cookie", clearedOauthStateCookie());
+      res.redirect(`${webAppUrl}/login?error=oauth_failed`);
+    }
+  }
+
+  @Public()
+  @Get("apple")
+  async appleStart(@Res() res: Response) {
+    const { url, state } = this.appleOAuth.buildAuthorizationRequest();
+    res.setHeader("Set-Cookie", oauthStateCookie(state));
+    res.redirect(url);
+  }
+
+  // Apple posts here (response_mode=form_post is required whenever name/email scopes are requested).
+  @Public()
+  @Post("apple/callback")
+  @HttpCode(302)
+  async appleCallback(
+    @Req() req: Request,
+    @Body() body: { code?: string; state?: string; user?: string },
+    @Res() res: Response,
+  ) {
+    const webAppUrl = process.env.WEB_APP_URL || "http://localhost:3000";
+    const { code, state, user } = body;
+    const cookieState = readCookie(req, OAUTH_STATE_COOKIE);
+
+    if (!code || !state || !cookieState || state !== cookieState) {
+      res.setHeader("Set-Cookie", clearedOauthStateCookie());
+      res.redirect(`${webAppUrl}/login?error=oauth_failed`);
+      return;
+    }
+
+    try {
+      const profile = await this.appleOAuth.exchangeCodeForProfile(code, user);
+      const result = await this.auth.loginOrRegisterWithApple(profile);
       res.setHeader("Set-Cookie", [clearedOauthStateCookie(), sessionCookie(result.sessionToken)]);
       res.redirect(`${webAppUrl}/app/inspections`);
     } catch {

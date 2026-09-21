@@ -75,32 +75,61 @@ export class AuthService {
     };
   }
 
+  /** Signs in a user via a verified Google identity, linking or creating an account as needed. */
+  async loginOrRegisterWithGoogle(profile: { googleId: string; email: string; fullName: string }) {
+    return this.loginOrRegisterWithOAuth({
+      field: "googleId",
+      providerId: profile.googleId,
+      email: profile.email,
+      fullName: profile.fullName,
+    });
+  }
+
+  /** Signs in a user via a verified Apple identity, linking or creating an account as needed. */
+  async loginOrRegisterWithApple(profile: { appleId: string; email: string; fullName: string }) {
+    return this.loginOrRegisterWithOAuth({
+      field: "appleId",
+      providerId: profile.appleId,
+      email: profile.email,
+      fullName: profile.fullName,
+    });
+  }
+
   /**
-   * Signs in a user via a verified Google identity, linking or creating an account as needed:
-   * - Existing googleId -> sign in.
-   * - Existing email (password account) -> link the Google identity, then sign in.
+   * Shared behind Google/Apple sign-in:
+   * - Existing account with this provider id -> sign in.
+   * - Existing email (password or other-provider account) -> link this provider id, then sign in.
    * - Neither -> create a new organization + user, same as register().
    */
-  async loginOrRegisterWithGoogle(profile: { googleId: string; email: string; fullName: string }) {
-    const email = profile.email.toLowerCase();
+  private async loginOrRegisterWithOAuth(params: {
+    field: "googleId" | "appleId";
+    providerId: string;
+    email: string;
+    fullName: string;
+  }) {
+    const email = params.email.toLowerCase();
 
-    const byGoogleId = await this.prisma.user.findUnique({ where: { googleId: profile.googleId } });
-    if (byGoogleId) {
-      const token = await this.createSession(this.prisma, byGoogleId.id);
-      return { userId: byGoogleId.id, sessionToken: token, isNewAccount: false };
+    const byProviderId = await this.findByProviderId(params.field, params.providerId);
+    if (byProviderId) {
+      const token = await this.createSession(this.prisma, byProviderId.id);
+      return { userId: byProviderId.id, sessionToken: token, isNewAccount: false };
     }
 
     const byEmail = await this.prisma.user.findUnique({ where: { email } });
     if (byEmail) {
-      await this.prisma.user.update({ where: { id: byEmail.id }, data: { googleId: profile.googleId } });
+      await this.linkProviderId(params.field, byEmail.id, params.providerId);
       const token = await this.createSession(this.prisma, byEmail.id);
       return { userId: byEmail.id, sessionToken: token, isNewAccount: false };
     }
 
     const result = await this.prisma.$transaction(async (tx) => {
-      const organization = await tx.organization.create({ data: { name: `${profile.fullName}'s Organization` } });
+      const organization = await tx.organization.create({ data: { name: `${params.fullName}'s Organization` } });
       const user = await tx.user.create({
-        data: { email, googleId: profile.googleId, fullName: profile.fullName },
+        data: {
+          email,
+          fullName: params.fullName,
+          ...(params.field === "googleId" ? { googleId: params.providerId } : { appleId: params.providerId }),
+        },
       });
       await tx.organizationMembership.create({
         data: { userId: user.id, organizationId: organization.id, role: "OWNER" },
@@ -119,6 +148,20 @@ export class AuthService {
     });
 
     return { userId: result.user.id, sessionToken: result.sessionToken, isNewAccount: true };
+  }
+
+  private async findByProviderId(field: "googleId" | "appleId", value: string) {
+    return field === "googleId"
+      ? this.prisma.user.findUnique({ where: { googleId: value } })
+      : this.prisma.user.findUnique({ where: { appleId: value } });
+  }
+
+  private async linkProviderId(field: "googleId" | "appleId", userId: string, value: string): Promise<void> {
+    if (field === "googleId") {
+      await this.prisma.user.update({ where: { id: userId }, data: { googleId: value } });
+    } else {
+      await this.prisma.user.update({ where: { id: userId }, data: { appleId: value } });
+    }
   }
 
   async logout(token: string): Promise<void> {
