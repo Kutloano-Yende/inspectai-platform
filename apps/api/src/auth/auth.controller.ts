@@ -1,6 +1,6 @@
 import { Body, Controller, Get, HttpCode, Inject, Post, Req, Res } from "@nestjs/common";
 import type { Request, Response } from "express";
-import { LoginRequest, RegisterRequest } from "@inspectai/contracts";
+import { CompleteOrganizationRequest, LoginRequest, RegisterRequest } from "@inspectai/contracts";
 import { ZodValidationPipe } from "../shared/zod.pipe.js";
 import { AuthService } from "./auth.service.js";
 import {
@@ -17,6 +17,11 @@ import { AppleOAuthService } from "./apple-oauth.service.js";
 import { MicrosoftOAuthService } from "./microsoft-oauth.service.js";
 import { CurrentUser, type Principal } from "./principal.js";
 import { Public } from "./public.decorator.js";
+
+/** New OAuth accounts have no organization yet and must name one before entering the app. */
+function postSignInPath(result: { needsOrganization: boolean }): string {
+  return result.needsOrganization ? "/onboarding/organization" : "/app/inspections";
+}
 
 @Controller("auth")
 export class AuthController {
@@ -67,6 +72,17 @@ export class AuthController {
     return this.auth.me({ userId: principal.userId });
   }
 
+  /** Names the organization for an account created via OAuth sign-up (see loginOrRegisterWithOAuth). */
+  @Post("complete-organization")
+  @HttpCode(200)
+  async completeOrganization(
+    @CurrentUser() principal: Principal,
+    @Body(new ZodValidationPipe(CompleteOrganizationRequest)) dto: CompleteOrganizationRequest,
+  ) {
+    if (!principal.userId) throw new Error("userId required");
+    return this.auth.completeOrganization(principal.userId, dto);
+  }
+
   @Public()
   @Get("providers")
   providers() {
@@ -103,7 +119,7 @@ export class AuthController {
       const profile = await this.googleOAuth.exchangeCodeForProfile(code);
       const result = await this.auth.loginOrRegisterWithGoogle(profile);
       res.setHeader("Set-Cookie", [clearedOauthStateCookie(), sessionCookie(result.sessionToken)]);
-      res.redirect(`${webAppUrl}/app/inspections`);
+      res.redirect(`${webAppUrl}${postSignInPath(result)}`);
     } catch {
       res.setHeader("Set-Cookie", clearedOauthStateCookie());
       res.redirect(`${webAppUrl}/login?error=oauth_failed`);
@@ -141,7 +157,7 @@ export class AuthController {
       const profile = await this.appleOAuth.exchangeCodeForProfile(code, user);
       const result = await this.auth.loginOrRegisterWithApple(profile);
       res.setHeader("Set-Cookie", [clearedOauthStateCookie(), sessionCookie(result.sessionToken)]);
-      res.redirect(`${webAppUrl}/app/inspections`);
+      res.redirect(`${webAppUrl}${postSignInPath(result)}`);
     } catch {
       res.setHeader("Set-Cookie", clearedOauthStateCookie());
       res.redirect(`${webAppUrl}/login?error=oauth_failed`);
@@ -174,7 +190,7 @@ export class AuthController {
       const profile = await this.microsoftOAuth.exchangeCodeForProfile(code);
       const result = await this.auth.loginOrRegisterWithMicrosoft(profile);
       res.setHeader("Set-Cookie", [clearedOauthStateCookie(), sessionCookie(result.sessionToken)]);
-      res.redirect(`${webAppUrl}/app/inspections`);
+      res.redirect(`${webAppUrl}${postSignInPath(result)}`);
     } catch {
       res.setHeader("Set-Cookie", clearedOauthStateCookie());
       res.redirect(`${webAppUrl}/login?error=oauth_failed`);

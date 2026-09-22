@@ -1,5 +1,5 @@
 import { Inject, Injectable } from "@nestjs/common";
-import { RegisterRequest, LoginRequest } from "@inspectai/contracts";
+import { RegisterRequest, LoginRequest, CompleteOrganizationRequest } from "@inspectai/contracts";
 import { AuditAction } from "@inspectai/domain";
 import { PrismaService } from "../prisma/prisma.service.js";
 import { AuditService } from "../audit/audit.service.js";
@@ -118,9 +118,12 @@ export class AuthService {
    * - Existing account with this provider id -> sign in.
    * - linkByEmail && existing email (password or other-provider account) -> link this provider
    *   id, then sign in.
-   * - Neither -> create a new organization + user, same as register(). If linkByEmail is false
-   *   and the email is already taken, this refuses rather than silently creating a duplicate or
-   *   linking to an account it can't confirm ownership of.
+   * - Neither -> create just the user (no organization yet — email sign-up asks for a real
+   *   organization name up front; OAuth has no such step, so rather than invent one like
+   *   "{name}'s Organization" with no way to fix it, the account is created org-less and the
+   *   caller sends them to complete onboarding via completeOrganization() below). If
+   *   linkByEmail is false and the email is already taken, this refuses rather than silently
+   *   creating a duplicate or linking to an account it can't confirm ownership of.
    */
   private async loginOrRegisterWithOAuth(params: {
     field: "googleId" | "appleId" | "microsoftId";
@@ -135,7 +138,7 @@ export class AuthService {
     const byProviderId = await this.findByProviderId(params.field, params.providerId);
     if (byProviderId) {
       const token = await this.createSession(this.prisma, byProviderId.id);
-      return { userId: byProviderId.id, sessionToken: token, isNewAccount: false };
+      return { userId: byProviderId.id, sessionToken: token, isNewAccount: false, needsOrganization: false };
     }
 
     const byEmail = await this.prisma.user.findUnique({ where: { email } });
@@ -145,11 +148,10 @@ export class AuthService {
       }
       await this.linkProviderId(params.field, byEmail.id, params.providerId);
       const token = await this.createSession(this.prisma, byEmail.id);
-      return { userId: byEmail.id, sessionToken: token, isNewAccount: false };
+      return { userId: byEmail.id, sessionToken: token, isNewAccount: false, needsOrganization: false };
     }
 
     const result = await this.prisma.$transaction(async (tx) => {
-      const organization = await tx.organization.create({ data: { name: `${params.fullName}'s Organization` } });
       const user = await tx.user.create({
         data: {
           email,
@@ -159,23 +161,42 @@ export class AuthService {
           ...(params.field === "microsoftId" && { microsoftId: params.providerId }),
         },
       });
-      await tx.organizationMembership.create({
-        data: { userId: user.id, organizationId: organization.id, role: "OWNER" },
-      });
       const session = await this.createSession(tx, user.id);
-      return { organization, user, sessionToken: session };
+      return { user, sessionToken: session };
+    });
+
+    return { userId: result.user.id, sessionToken: result.sessionToken, isNewAccount: true, needsOrganization: true };
+  }
+
+  /**
+   * Names the organization for a user created without one (OAuth sign-up — see
+   * loginOrRegisterWithOAuth). Refuses if the user already belongs to an organization, so this
+   * can't be used to create extra organizations for an already-provisioned account.
+   */
+  async completeOrganization(userId: string, dto: CompleteOrganizationRequest) {
+    const existingMembership = await this.prisma.organizationMembership.findFirst({ where: { userId } });
+    if (existingMembership) {
+      throw new ConflictError("ORGANIZATION_ALREADY_EXISTS", "You already belong to an organization");
+    }
+
+    const result = await this.prisma.$transaction(async (tx) => {
+      const organization = await tx.organization.create({ data: { name: dto.organizationName } });
+      await tx.organizationMembership.create({
+        data: { userId, organizationId: organization.id, role: "OWNER" },
+      });
+      return organization;
     });
 
     await this.audit.record({
-      organizationId: result.organization.id,
+      organizationId: result.id,
       actorType: "USER",
-      actorUserId: result.user.id,
+      actorUserId: userId,
       action: AuditAction.UserRegisteredOrg,
       entityType: "Organization",
-      entityId: result.organization.id,
+      entityId: result.id,
     });
 
-    return { userId: result.user.id, sessionToken: result.sessionToken, isNewAccount: true };
+    return { organization: { id: result.id, name: result.name, createdAt: result.createdAt } };
   }
 
   private async findByProviderId(field: "googleId" | "appleId" | "microsoftId", value: string) {

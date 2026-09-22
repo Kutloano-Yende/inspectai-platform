@@ -86,6 +86,14 @@ export function AuthScreen({ mode, onSubmit, initialError }: AuthScreenProps) {
     });
   };
 
+  /** Signup also requires agreeing to terms before a social provider redirect leaves the app. */
+  const handleSocialClick = (e: React.MouseEvent<HTMLAnchorElement>) => {
+    if (!isLogin && !agreeToTerms) {
+      e.preventDefault();
+      setError("Please agree to the Terms of Service and Privacy Policy to continue.");
+    }
+  };
+
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     setError("");
@@ -313,7 +321,7 @@ export function AuthScreen({ mode, onSubmit, initialError }: AuthScreenProps) {
 
           <div className={styles.social}>
             {googleEnabled ? (
-              <a href={`${API_URL}/auth/google`} className={styles.socialLink}>
+              <a href={`${API_URL}/auth/google`} className={styles.socialLink} onClick={handleSocialClick}>
                 Google
               </a>
             ) : (
@@ -322,7 +330,7 @@ export function AuthScreen({ mode, onSubmit, initialError }: AuthScreenProps) {
               </button>
             )}
             {appleEnabled ? (
-              <a href={`${API_URL}/auth/apple`} className={styles.socialLink}>
+              <a href={`${API_URL}/auth/apple`} className={styles.socialLink} onClick={handleSocialClick}>
                 Apple
               </a>
             ) : (
@@ -331,7 +339,7 @@ export function AuthScreen({ mode, onSubmit, initialError }: AuthScreenProps) {
               </button>
             )}
             {microsoftEnabled ? (
-              <a href={`${API_URL}/auth/microsoft`} className={styles.socialLink}>
+              <a href={`${API_URL}/auth/microsoft`} className={styles.socialLink} onClick={handleSocialClick}>
                 Microsoft
               </a>
             ) : (

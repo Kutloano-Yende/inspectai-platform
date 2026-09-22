@@ -17,6 +17,11 @@ export const LoginRequest = z.object({
 });
 export type LoginRequest = z.infer<typeof LoginRequest>;
 
+export const CompleteOrganizationRequest = z.object({
+  organizationName: z.string().min(1).max(200),
+});
+export type CompleteOrganizationRequest = z.infer<typeof CompleteOrganizationRequest>;
+
 /* Portfolio requests */
 export const CreatePropertyRequest = z.object({
   displayName: z.string().min(1).max(200),
