@@ -66,12 +66,26 @@
 | `S3_SECRET_KEY` | ✅ | `...` | AWS IAM secret key |
 | `S3_EVIDENCE_BUCKET` | ✅ | `inspectai-evidence` | Private bucket for photos/video |
 | `S3_REPORTS_BUCKET` | ✅ | `inspectai-reports` | Private bucket for PDFs |
+| `CORS_ORIGINS` | ✅ | `https://app.example.com` | Comma-separated web app origin(s) allowed to call the API with cookies. Defaults to `localhost:3000`/`3001` if unset — **must** be set to the real domain in production, or sign-in and every other cookie-authenticated request fails with a CORS error. |
+| `WEB_APP_URL` | ✅ | `https://app.example.com` | Where the API redirects back to after a social sign-in completes (or fails) |
 
 ### Web Application Only
 
 | Variable | Required | Example | Notes |
 |----------|----------|---------|-------|
 | `NEXT_PUBLIC_API_URL` | ✅ | `https://api.example.com/api/v1` | Public API endpoint URL |
+
+### Social Sign-In (optional — API Server Only)
+
+Each provider's button on `/login` and `/signup` checks `GET /auth/providers` at runtime and stays a disabled "Coming soon" until all of that provider's variables below are set. None are required to deploy.
+
+| Variable | Provider | Notes |
+|----------|----------|-------|
+| `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GOOGLE_REDIRECT_URI` | Google | From Google Cloud Console > APIs & Services > Credentials > OAuth client ID (Web application). Free. |
+| `APPLE_TEAM_ID`, `APPLE_SERVICES_ID`, `APPLE_KEY_ID`, `APPLE_PRIVATE_KEY`, `APPLE_REDIRECT_URI` | Apple | Requires a paid Apple Developer Program membership. `APPLE_PRIVATE_KEY` is the `.p8` key's contents with real newlines escaped as `\n` on one line. |
+| `MICROSOFT_CLIENT_ID`, `MICROSOFT_CLIENT_SECRET`, `MICROSOFT_REDIRECT_URI` | Microsoft | From Azure Portal > App registrations. Free. Account type must allow personal + org accounts if you want both. |
+
+See `.env.example` for the full, commented list including where to obtain each value.
 
 ### Optional (Future Phases)
 

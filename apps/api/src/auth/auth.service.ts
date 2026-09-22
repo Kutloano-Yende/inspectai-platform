@@ -95,29 +95,42 @@ export class AuthService {
     });
   }
 
-  /** Signs in a user via a verified Microsoft identity, linking or creating an account as needed. */
+  /**
+   * Signs in a user via a Microsoft identity, linking or creating an account as needed.
+   * Microsoft's `email` claim is NOT a verified-email guarantee (Microsoft's own docs: "not
+   * guaranteed to be correct... never use it for authorization"), unlike Google/Apple's explicit
+   * email_verified. So unlike those two, this never auto-links to an existing account by email —
+   * doing so would let anyone with a Microsoft account matching someone else's email take over
+   * that account. A genuine owner can still link Microsoft manually once signed in normally.
+   */
   async loginOrRegisterWithMicrosoft(profile: { microsoftId: string; email: string; fullName: string }) {
     return this.loginOrRegisterWithOAuth({
       field: "microsoftId",
       providerId: profile.microsoftId,
       email: profile.email,
       fullName: profile.fullName,
+      linkByEmail: false,
     });
   }
 
   /**
    * Shared behind Google/Apple/Microsoft sign-in:
    * - Existing account with this provider id -> sign in.
-   * - Existing email (password or other-provider account) -> link this provider id, then sign in.
-   * - Neither -> create a new organization + user, same as register().
+   * - linkByEmail && existing email (password or other-provider account) -> link this provider
+   *   id, then sign in.
+   * - Neither -> create a new organization + user, same as register(). If linkByEmail is false
+   *   and the email is already taken, this refuses rather than silently creating a duplicate or
+   *   linking to an account it can't confirm ownership of.
    */
   private async loginOrRegisterWithOAuth(params: {
     field: "googleId" | "appleId" | "microsoftId";
     providerId: string;
     email: string;
     fullName: string;
+    linkByEmail?: boolean;
   }) {
     const email = params.email.toLowerCase();
+    const linkByEmail = params.linkByEmail ?? true;
 
     const byProviderId = await this.findByProviderId(params.field, params.providerId);
     if (byProviderId) {
@@ -127,6 +140,9 @@ export class AuthService {
 
     const byEmail = await this.prisma.user.findUnique({ where: { email } });
     if (byEmail) {
+      if (!linkByEmail) {
+        throw new ConflictError("EMAIL_ALREADY_REGISTERED", "An account with this email already exists");
+      }
       await this.linkProviderId(params.field, byEmail.id, params.providerId);
       const token = await this.createSession(this.prisma, byEmail.id);
       return { userId: byEmail.id, sessionToken: token, isNewAccount: false };
