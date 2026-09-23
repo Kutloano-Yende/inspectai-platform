@@ -19,6 +19,7 @@ const NAV_ITEMS: NavItem[] = [
   { label: "Dashboard", href: "/app/dashboard" },
   { label: "Inspections", href: "/app/inspections" },
   { label: "Properties", href: "/app/properties" },
+  { label: "Settings", href: "/app/settings" },
 ];
 
 export function AppLayout({ children }: AppLayoutProps) {

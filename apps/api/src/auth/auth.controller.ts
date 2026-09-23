@@ -1,7 +1,8 @@
-import { Body, Controller, Get, HttpCode, Inject, Post, Req, Res } from "@nestjs/common";
+import { Body, Controller, Delete, Get, HttpCode, HttpStatus, Inject, Param, Post, Req, Res } from "@nestjs/common";
 import type { Request, Response } from "express";
 import { CompleteOrganizationRequest, LoginRequest, RegisterRequest } from "@inspectai/contracts";
 import { ZodValidationPipe } from "../shared/zod.pipe.js";
+import { ProblemError } from "../shared/errors.js";
 import { AuthService } from "./auth.service.js";
 import {
   clearedOauthStateCookie,
@@ -21,6 +22,15 @@ import { Public } from "./public.decorator.js";
 /** New OAuth accounts have no organization yet and must name one before entering the app. */
 function postSignInPath(result: { needsOrganization: boolean }): string {
   return result.needsOrganization ? "/onboarding/organization" : "/app/inspections";
+}
+
+type ProviderField = "googleId" | "appleId" | "microsoftId";
+
+function providerField(provider: string): ProviderField {
+  if (provider === "google") return "googleId";
+  if (provider === "apple") return "appleId";
+  if (provider === "microsoft") return "microsoftId";
+  throw new ProblemError("UNKNOWN_PROVIDER", HttpStatus.BAD_REQUEST, `Unknown provider "${provider}"`);
 }
 
 @Controller("auth")
@@ -83,6 +93,15 @@ export class AuthController {
     return this.auth.completeOrganization(principal.userId, dto);
   }
 
+  /** Removes a linked sign-in provider from the current user's account (Settings page). */
+  @Delete("providers/:provider")
+  @HttpCode(200)
+  async unlinkProvider(@CurrentUser() principal: Principal, @Param("provider") provider: string) {
+    if (!principal.userId) throw new Error("userId required");
+    await this.auth.unlinkProvider(principal.userId, providerField(provider));
+    return { ok: true };
+  }
+
   @Public()
   @Get("providers")
   providers() {
@@ -115,14 +134,22 @@ export class AuthController {
       return;
     }
 
+    const linkUserId = await this.resolveLinkUserId(req);
+
     try {
       const profile = await this.googleOAuth.exchangeCodeForProfile(code);
+      if (linkUserId) {
+        await this.auth.linkProviderForUser(linkUserId, "googleId", profile.googleId);
+        res.setHeader("Set-Cookie", clearedOauthStateCookie());
+        res.redirect(`${webAppUrl}/app/settings?linked=google`);
+        return;
+      }
       const result = await this.auth.loginOrRegisterWithGoogle(profile);
       res.setHeader("Set-Cookie", [clearedOauthStateCookie(), sessionCookie(result.sessionToken)]);
       res.redirect(`${webAppUrl}${postSignInPath(result)}`);
-    } catch {
+    } catch (err) {
       res.setHeader("Set-Cookie", clearedOauthStateCookie());
-      res.redirect(`${webAppUrl}/login?error=oauth_failed`);
+      res.redirect(linkUserId ? `${webAppUrl}/app/settings?link_error=${linkErrorCode(err)}` : `${webAppUrl}/login?error=oauth_failed`);
     }
   }
 
@@ -153,14 +180,22 @@ export class AuthController {
       return;
     }
 
+    const linkUserId = await this.resolveLinkUserId(req);
+
     try {
       const profile = await this.appleOAuth.exchangeCodeForProfile(code, user);
+      if (linkUserId) {
+        await this.auth.linkProviderForUser(linkUserId, "appleId", profile.appleId);
+        res.setHeader("Set-Cookie", clearedOauthStateCookie());
+        res.redirect(`${webAppUrl}/app/settings?linked=apple`);
+        return;
+      }
       const result = await this.auth.loginOrRegisterWithApple(profile);
       res.setHeader("Set-Cookie", [clearedOauthStateCookie(), sessionCookie(result.sessionToken)]);
       res.redirect(`${webAppUrl}${postSignInPath(result)}`);
-    } catch {
+    } catch (err) {
       res.setHeader("Set-Cookie", clearedOauthStateCookie());
-      res.redirect(`${webAppUrl}/login?error=oauth_failed`);
+      res.redirect(linkUserId ? `${webAppUrl}/app/settings?link_error=${linkErrorCode(err)}` : `${webAppUrl}/login?error=oauth_failed`);
     }
   }
 
@@ -186,14 +221,38 @@ export class AuthController {
       return;
     }
 
+    const linkUserId = await this.resolveLinkUserId(req);
+
     try {
       const profile = await this.microsoftOAuth.exchangeCodeForProfile(code);
+      if (linkUserId) {
+        await this.auth.linkProviderForUser(linkUserId, "microsoftId", profile.microsoftId);
+        res.setHeader("Set-Cookie", clearedOauthStateCookie());
+        res.redirect(`${webAppUrl}/app/settings?linked=microsoft`);
+        return;
+      }
       const result = await this.auth.loginOrRegisterWithMicrosoft(profile);
       res.setHeader("Set-Cookie", [clearedOauthStateCookie(), sessionCookie(result.sessionToken)]);
       res.redirect(`${webAppUrl}${postSignInPath(result)}`);
-    } catch {
+    } catch (err) {
       res.setHeader("Set-Cookie", clearedOauthStateCookie());
-      res.redirect(`${webAppUrl}/login?error=oauth_failed`);
+      res.redirect(linkUserId ? `${webAppUrl}/app/settings?link_error=${linkErrorCode(err)}` : `${webAppUrl}/login?error=oauth_failed`);
     }
   }
+
+  /**
+   * If the browser already carries a valid session when it lands on an OAuth callback, this was
+   * initiated from Settings > "Link" while already signed in, not a sign-in/sign-up attempt.
+   * Cookies persist across the redirect through the external provider, so the existing session
+   * cookie (if any) arrives on the callback request exactly like any other cookie would.
+   */
+  private async resolveLinkUserId(req: Request): Promise<string | undefined> {
+    const sessionToken = readCookie(req, SESSION_COOKIE);
+    if (!sessionToken) return undefined;
+    return this.auth.resolveSessionUserId(sessionToken);
+  }
+}
+
+function linkErrorCode(err: unknown): string {
+  return err instanceof ProblemError ? err.code.toLowerCase() : "link_failed";
 }

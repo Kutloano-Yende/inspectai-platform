@@ -199,6 +199,47 @@ export class AuthService {
     return { organization: { id: result.id, name: result.name, createdAt: result.createdAt } };
   }
 
+  /** Resolves a raw session cookie value to a userId, or undefined if it's missing/invalid/expired. Never throws. */
+  async resolveSessionUserId(token: string): Promise<string | undefined> {
+    const session = await this.prisma.session.findUnique({ where: { tokenHash: sha256(token) } });
+    if (!session || session.expiresAt <= new Date()) return undefined;
+    return session.userId;
+  }
+
+  /**
+   * Links a verified provider identity to an already-authenticated user (Settings > "Link
+   * Google/Apple/Microsoft"), unlike loginOrRegisterWithOAuth which signs in or creates an
+   * account. Unlike sign-in, this never requires an email match — the whole point of linking a
+   * second provider is often a different email — but it does refuse if that provider identity is
+   * already claimed by a DIFFERENT user, so linking can't be used to steal a login method that
+   * belongs to someone else's account. Linking a provider already linked to this same user is a
+   * harmless no-op.
+   */
+  async linkProviderForUser(userId: string, field: "googleId" | "appleId" | "microsoftId", providerId: string): Promise<void> {
+    const existingOwner = await this.findByProviderId(field, providerId);
+    if (existingOwner && existingOwner.id !== userId) {
+      throw new ConflictError("PROVIDER_ALREADY_LINKED", "This account is already linked to a different InspectAI user");
+    }
+    if (existingOwner) return;
+    await this.linkProviderId(field, userId, providerId);
+  }
+
+  /** Removes a linked provider, refusing if it would leave the user with no way to sign in at all. */
+  async unlinkProvider(userId: string, field: "googleId" | "appleId" | "microsoftId"): Promise<void> {
+    const user = await this.prisma.user.findUniqueOrThrow({ where: { id: userId } });
+    const authMethodCount = [user.passwordHash, user.googleId, user.appleId, user.microsoftId].filter(Boolean).length;
+    if (authMethodCount <= 1) {
+      throw new ConflictError("LAST_AUTH_METHOD", "You must keep at least one way to sign in — add another before removing this one");
+    }
+    if (field === "googleId") {
+      await this.prisma.user.update({ where: { id: userId }, data: { googleId: null } });
+    } else if (field === "appleId") {
+      await this.prisma.user.update({ where: { id: userId }, data: { appleId: null } });
+    } else {
+      await this.prisma.user.update({ where: { id: userId }, data: { microsoftId: null } });
+    }
+  }
+
   private async findByProviderId(field: "googleId" | "appleId" | "microsoftId", value: string) {
     if (field === "googleId") return this.prisma.user.findUnique({ where: { googleId: value } });
     if (field === "appleId") return this.prisma.user.findUnique({ where: { appleId: value } });
@@ -226,7 +267,17 @@ export class AuthService {
       include: { organization: true },
     });
     return {
-      user: { id: user.id, email: user.email, fullName: user.fullName, mfaEnabled: false, createdAt: user.createdAt },
+      user: {
+        id: user.id,
+        email: user.email,
+        fullName: user.fullName,
+        mfaEnabled: false,
+        createdAt: user.createdAt,
+        hasPassword: user.passwordHash !== null,
+        googleLinked: user.googleId !== null,
+        appleLinked: user.appleId !== null,
+        microsoftLinked: user.microsoftId !== null,
+      },
       organizations: memberships.map((m) => ({
         id: m.organization.id,
         name: m.organization.name,

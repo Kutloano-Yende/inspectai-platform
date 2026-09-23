@@ -8,6 +8,10 @@ interface AuthUser {
   email: string;
   organizationId: string;
   memberships: Array<{ organizationId: string; role: string }>;
+  hasPassword: boolean;
+  googleLinked: boolean;
+  appleLinked: boolean;
+  microsoftLinked: boolean;
 }
 
 interface AuthContextValue {
@@ -15,6 +19,7 @@ interface AuthContextValue {
   isLoading: boolean;
   error: Error | null;
   logout: () => Promise<void>;
+  refresh: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -39,7 +44,14 @@ export function AuthProvider({ children }: PropsWithChildren) {
   const checkAuth = useCallback(async () => {
     try {
       const response = await fetchApi<{
-        user: { id: string; email: string };
+        user: {
+          id: string;
+          email: string;
+          hasPassword: boolean;
+          googleLinked: boolean;
+          appleLinked: boolean;
+          microsoftLinked: boolean;
+        };
         organizations: Array<{ id: string; name: string; role: string }>;
       }>("/auth/me");
       const orgs = response.organizations || [];
@@ -48,6 +60,10 @@ export function AuthProvider({ children }: PropsWithChildren) {
         email: response.user.email,
         organizationId: orgs[0]?.id || "",
         memberships: orgs.map((org) => ({ organizationId: org.id, role: org.role })),
+        hasPassword: response.user.hasPassword,
+        googleLinked: response.user.googleLinked,
+        appleLinked: response.user.appleLinked,
+        microsoftLinked: response.user.microsoftLinked,
       });
     } catch (err) {
       if (err instanceof ApiError && err.status === 401) {
@@ -70,7 +86,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
   }, []);
 
   return (
-    <AuthContext.Provider value={{ user, isLoading, error, logout }}>
+    <AuthContext.Provider value={{ user, isLoading, error, logout, refresh: checkAuth }}>
       {children}
     </AuthContext.Provider>
   );
