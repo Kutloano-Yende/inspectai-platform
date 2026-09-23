@@ -23,6 +23,12 @@
   --color-danger: #A63A3A;
   --color-info: #2F5D8A;
 
+  /* Light tints of the status colours above, for badge/banner backgrounds. */
+  --color-success-light: #E3F0E8;
+  --color-warning-light: #FBF0E1;
+  --color-danger-light: #F7E9E9;
+  --color-info-light: #E6ECF3;
+
   /* Severity */
   --color-severity-low: #6B7A8C;
   --color-severity-medium: #B26B00;
@@ -37,7 +43,58 @@
   --shadow-card: 0 1px 2px rgba(23, 50, 77, 0.06), 0 1px 3px rgba(23, 50, 77, 0.08);
   --shadow-overlay: 0 4px 16px rgba(23, 50, 77, 0.12);
 
+  /* Spacing scale — mirrors src/tokens.ts's `spacing` object, which was never exposed as CSS. */
+  --spacing-1: 4px;
+  --spacing-2: 8px;
+  --spacing-3: 12px;
+  --spacing-4: 16px;
+  --spacing-5: 24px;
+  --spacing-6: 32px;
+  --spacing-7: 48px;
+  --spacing-8: 64px;
+
   /* Typography */
   --font-sans: "Inter", -apple-system, "Segoe UI", Roboto, sans-serif;
   --font-serif: "Source Serif 4", Georgia, serif;
+}
+
+/*
+ * Semantic aliases consumed by apps/web's /app/* screens. Every value here is a
+ * var() reference to (or, for the two hover shades, a fixed tint derived from) a
+ * primitive defined above — nothing below introduces a second source of truth.
+ * These app-level role names predate this file and were never wired up, so every
+ * page under /app/* previously rendered with no color, spacing, or shadow at all.
+ */
+:root {
+  --color-primary: var(--color-teal);
+  --color-primary-dark: #1F615C; /* ~20% darker teal, for hover/active states */
+
+  --color-text-primary: var(--color-ink);
+  --color-text-secondary: var(--color-muted-text);
+  --color-text-success: var(--color-success);
+  --color-text-warning: var(--color-warning);
+  --color-text-danger: var(--color-danger);
+  --color-text-error: var(--color-danger);
+  --color-text-info: var(--color-info);
+
+  --color-bg-primary: var(--color-stone);
+  --color-bg-secondary: var(--color-sand);
+  --color-bg-success-light: var(--color-success-light);
+  --color-bg-warning-light: var(--color-warning-light);
+  --color-bg-danger-light: var(--color-danger-light);
+  --color-bg-error-light: var(--color-danger-light);
+  --color-bg-info-light: var(--color-info-light);
+  --color-bg-danger: #F0D5D5; /* mid-tint hover state, darker than -light but still readable against danger-colored text */
+
+  --color-surface-primary: var(--color-white);
+
+  --color-border-primary: var(--color-border);
+  --color-border-secondary: var(--color-border-strong);
+  --color-border-danger: var(--color-danger);
+
+  --spacing-xs: var(--spacing-1);
+  --spacing-sm: var(--spacing-2);
+  --spacing-md: var(--spacing-4);
+  --spacing-lg: var(--spacing-5);
+  --spacing-xl: var(--spacing-6);
 }

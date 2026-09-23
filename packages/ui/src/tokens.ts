@@ -25,6 +25,12 @@ export const colors = {
   danger: "#A63A3A",
   info: "#2F5D8A",
 
+  /* Light tints of the status colours above, for badge/banner backgrounds. */
+  successLight: "#E3F0E8",
+  warningLight: "#FBF0E1",
+  dangerLight: "#F7E9E9",
+  infoLight: "#E6ECF3",
+
   /* Semantic aliases for inspection domain */
   severity: {
     low: "#6B7A8C", // LOW — neutral slate, not a status colour
