@@ -10,6 +10,9 @@ interface CreateUnitModalProps {
   onClose: () => void;
 }
 
+/** Number inputs yield strings; the API expects integers, and both fields are optional. */
+const optionalNumber = (value: unknown) => (value === "" || value == null ? undefined : Number(value));
+
 export function CreateUnitModal({ propertyId, onClose }: CreateUnitModalProps) {
   const { register, handleSubmit, formState: { errors }, reset } = useForm<CreateUnitRequest>({
     defaultValues: {
@@ -56,7 +59,7 @@ export function CreateUnitModal({ propertyId, onClose }: CreateUnitModalProps) {
               <input
                 id="bedrooms"
                 type="number"
-                {...register("bedrooms", { min: 0 })}
+                {...register("bedrooms", { min: 0, setValueAs: optionalNumber })}
                 placeholder="0"
                 disabled={isPending}
               />
@@ -68,7 +71,7 @@ export function CreateUnitModal({ propertyId, onClose }: CreateUnitModalProps) {
               <input
                 id="bathrooms"
                 type="number"
-                {...register("bathrooms", { min: 0 })}
+                {...register("bathrooms", { min: 0, setValueAs: optionalNumber })}
                 placeholder="0"
                 disabled={isPending}
               />
