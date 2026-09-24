@@ -32,14 +32,14 @@
 }
 
 .success {
-  background: #eaf6f0;
-  border: 1px solid #bfe3d1;
+  background: var(--color-success-light);
+  border: 1px solid var(--color-border);
   color: var(--color-success);
 }
 
 .error {
-  background: #fbebeb;
-  border: 1px solid #edc5c5;
+  background: var(--color-danger-light);
+  border: 1px solid var(--color-bg-danger);
   color: var(--color-danger);
   padding: 10px 13px;
   border-radius: var(--radius-sm);
@@ -129,8 +129,8 @@
 }
 
 .linkButton {
-  color: var(--color-teal);
-  border-color: var(--color-teal);
+  color: var(--color-primary);
+  border-color: var(--color-primary);
 }
 
 .linkButton:hover:not([aria-disabled="true"]) {
@@ -151,8 +151,8 @@
 }
 
 .unlinkButton:hover:not(:disabled) {
-  background: #fbebeb;
-  border-color: #edc5c5;
+  background: var(--color-danger-light);
+  border-color: var(--color-bg-danger);
 }
 
 .unlinkButton:disabled {

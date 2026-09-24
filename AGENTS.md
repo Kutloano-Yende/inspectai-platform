@@ -44,7 +44,7 @@ Read this before writing any code. The architecture of record is `docs/ARCHITECT
 
 ## Design rules
 
-Palette: Navy `#17324D`, Slate `#334E68`, Teal `#287D76`, Stone `#F5F4F1`, White, Sand `#E9E5DC`.
+Palette: Navy `#0F2742`, Slate `#334E68`, Blue `#006EAD` (primary), Stone `#F8FAFC`, White, Sand `#EEF3F8` — shared by the public site and the logged-in app.
 Use: strong typography, subtle borders/shadows, 8–12px radii, Lucide icons, real photography, evidence-rich layouts, status colours sparingly.
 Ban: purple AI gradients, glow effects, robot imagery, glassmorphism, excessive rounding, decorative icons, giant stat dashboards.
 Design tokens live once in `packages/ui`.

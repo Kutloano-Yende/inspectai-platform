@@ -5,37 +5,39 @@
  */
 
 export const colors = {
-  /* Core palette */
-  navy: "#17324D", // Primary Navy — headings, primary actions, landlord surfaces
+  /* Core palette — matches the public landing/auth screens so the whole product reads as one. */
+  navy: "#0F2742", // Deep Navy — headings, landlord surfaces
   slate: "#334E68", // Deep Slate — secondary text, subdued UI
-  teal: "#287D76", // Muted Teal — accents, evidence-verified states, links
-  stone: "#F5F4F1", // Warm Stone — page backgrounds
-  sand: "#E9E5DC", // Soft Sand — section fills, subtle emphasis
+  blue: "#006EAD", // Primary Blue — primary actions, links, accents
+  blueDark: "#00537F", // hover/active state of blue
+  blueLight: "#EAF5FB", // tint of blue for selected/soft backgrounds
+  stone: "#F8FAFC", // Page backgrounds
+  sand: "#EEF3F8", // Section fills, subtle emphasis
   white: "#FFFFFF", // Cards, elevated surfaces
 
   /* Derived neutrals (tints of navy/slate for borders and text) */
-  ink: "#1A2A3A", // darkest text
-  border: "#D8D4CC", // subtle hairline borders
-  borderStrong: "#B9B4A9",
-  mutedText: "#6B7A8C",
+  ink: "#172B4D", // darkest text
+  border: "#E2E8F0", // subtle hairline borders
+  borderStrong: "#CBD5E1",
+  mutedText: "#64748B",
 
   /* Status — use sparingly and consistently (AGENTS.md design rules) */
-  success: "#2E7D52",
+  success: "#168A70",
   warning: "#B26B00",
-  danger: "#A63A3A",
-  info: "#2F5D8A",
+  danger: "#B3423F",
+  info: "#006EAD",
 
   /* Light tints of the status colours above, for badge/banner backgrounds. */
-  successLight: "#E3F0E8",
+  successLight: "#E3F6F1",
   warningLight: "#FBF0E1",
-  dangerLight: "#F7E9E9",
-  infoLight: "#E6ECF3",
+  dangerLight: "#FDF3F3",
+  infoLight: "#EAF5FB",
 
   /* Semantic aliases for inspection domain */
   severity: {
-    low: "#6B7A8C", // LOW — neutral slate, not a status colour
+    low: "#64748B", // LOW — neutral slate, not a status colour
     medium: "#B26B00", // MEDIUM — warning
-    high: "#A63A3A", // HIGH — danger
+    high: "#B3423F", // HIGH — danger
   },
 } as const;
 
@@ -76,8 +78,8 @@ export const typography = {
 
 export const shadows = {
   /** Subtle only — one elevation level for cards, one for overlays. */
-  card: "0 1px 2px rgba(23, 50, 77, 0.06), 0 1px 3px rgba(23, 50, 77, 0.08)",
-  overlay: "0 4px 16px rgba(23, 50, 77, 0.12)",
+  card: "0 1px 2px rgba(15, 39, 66, 0.06), 0 1px 3px rgba(15, 39, 66, 0.08)",
+  overlay: "0 4px 16px rgba(15, 39, 66, 0.12)",
 } as const;
 
 export const zIndices = { base: 0, raised: 10, sticky: 100, overlay: 1000 } as const;

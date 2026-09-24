@@ -10,7 +10,9 @@ describe("token parity (tokens.ts ↔ tokens.css)", () => {
   const pairs: Array<[string, string]> = [
     ["--color-navy", colors.navy],
     ["--color-slate", colors.slate],
-    ["--color-teal", colors.teal],
+    ["--color-blue", colors.blue],
+    ["--color-blue-dark", colors.blueDark],
+    ["--color-blue-light", colors.blueLight],
     ["--color-stone", colors.stone],
     ["--color-sand", colors.sand],
     ["--color-success-light", colors.successLight],
@@ -83,11 +85,11 @@ describe("design rules (AGENTS.md)", () => {
   });
 
   it("core palette matches the specified brand colours", () => {
-    expect(colors.navy).toBe("#17324D");
+    expect(colors.navy).toBe("#0F2742");
     expect(colors.slate).toBe("#334E68");
-    expect(colors.teal).toBe("#287D76");
-    expect(colors.stone).toBe("#F5F4F1");
-    expect(colors.sand).toBe("#E9E5DC");
+    expect(colors.blue).toBe("#006EAD");
+    expect(colors.stone).toBe("#F8FAFC");
+    expect(colors.sand).toBe("#EEF3F8");
   });
 
   it("severity mapping is consistent with status colours", () => {

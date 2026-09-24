@@ -4,35 +4,37 @@
  */
 :root {
   /* Core palette */
-  --color-navy: #17324D;
+  --color-navy: #0F2742;
   --color-slate: #334E68;
-  --color-teal: #287D76;
-  --color-stone: #F5F4F1;
-  --color-sand: #E9E5DC;
+  --color-blue: #006EAD;
+  --color-blue-dark: #00537F;
+  --color-blue-light: #EAF5FB;
+  --color-stone: #F8FAFC;
+  --color-sand: #EEF3F8;
   --color-white: #FFFFFF;
 
   /* Derived neutrals */
-  --color-ink: #1A2A3A;
-  --color-border: #D8D4CC;
-  --color-border-strong: #B9B4A9;
-  --color-muted-text: #6B7A8C;
+  --color-ink: #172B4D;
+  --color-border: #E2E8F0;
+  --color-border-strong: #CBD5E1;
+  --color-muted-text: #64748B;
 
   /* Status (sparing use) */
-  --color-success: #2E7D52;
+  --color-success: #168A70;
   --color-warning: #B26B00;
-  --color-danger: #A63A3A;
-  --color-info: #2F5D8A;
+  --color-danger: #B3423F;
+  --color-info: #006EAD;
 
   /* Light tints of the status colours above, for badge/banner backgrounds. */
-  --color-success-light: #E3F0E8;
+  --color-success-light: #E3F6F1;
   --color-warning-light: #FBF0E1;
-  --color-danger-light: #F7E9E9;
-  --color-info-light: #E6ECF3;
+  --color-danger-light: #FDF3F3;
+  --color-info-light: #EAF5FB;
 
   /* Severity */
-  --color-severity-low: #6B7A8C;
+  --color-severity-low: #64748B;
   --color-severity-medium: #B26B00;
-  --color-severity-high: #A63A3A;
+  --color-severity-high: #B3423F;
 
   /* Radii (8–12px) */
   --radius-sm: 8px;
@@ -40,8 +42,8 @@
   --radius-lg: 12px;
 
   /* Shadows (subtle) */
-  --shadow-card: 0 1px 2px rgba(23, 50, 77, 0.06), 0 1px 3px rgba(23, 50, 77, 0.08);
-  --shadow-overlay: 0 4px 16px rgba(23, 50, 77, 0.12);
+  --shadow-card: 0 1px 2px rgba(15, 39, 66, 0.06), 0 1px 3px rgba(15, 39, 66, 0.08);
+  --shadow-overlay: 0 4px 16px rgba(15, 39, 66, 0.12);
 
   /* Spacing scale — mirrors src/tokens.ts's `spacing` object, which was never exposed as CSS. */
   --spacing-1: 4px;
@@ -66,8 +68,8 @@
  * page under /app/* previously rendered with no color, spacing, or shadow at all.
  */
 :root {
-  --color-primary: var(--color-teal);
-  --color-primary-dark: #1F615C; /* ~20% darker teal, for hover/active states */
+  --color-primary: var(--color-blue);
+  --color-primary-dark: var(--color-blue-dark);
 
   --color-text-primary: var(--color-ink);
   --color-text-secondary: var(--color-muted-text);
@@ -84,7 +86,7 @@
   --color-bg-danger-light: var(--color-danger-light);
   --color-bg-error-light: var(--color-danger-light);
   --color-bg-info-light: var(--color-info-light);
-  --color-bg-danger: #F0D5D5; /* mid-tint hover state, darker than -light but still readable against danger-colored text */
+  --color-bg-danger: #F3D6D6; /* mid-tint hover state, darker than -light but still readable against danger-colored text */
 
   --color-surface-primary: var(--color-white);
 
