@@ -1,77 +1,67 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { useCreateTenancy } from "@/lib/hooks/usePortfolio";
 import { CreateTenancyRequest } from "@inspectai/contracts";
-import styles from "./CreateTenancyModal.module.css";
+import { FormDialog } from "@/components/FormDialog";
+import { FormField } from "@/components/FormField";
+import { Input } from "@/components/ui/input";
 
 interface CreateTenancyModalProps {
   unitId: string;
   onClose: () => void;
 }
 
+/** Date inputs give "YYYY-MM-DD"; the API contract wants a full ISO datetime, or null when open-ended. */
+const toIsoDateTime = (date: string | null | undefined) => (date ? new Date(`${date}T00:00:00.000Z`).toISOString() : null);
+
 export function CreateTenancyModal({ unitId, onClose }: CreateTenancyModalProps) {
-  const { register, handleSubmit, formState: { errors }, reset } = useForm<CreateTenancyRequest>({
-    defaultValues: {
-      startDate: new Date().toISOString().split('T')[0],
-      endDate: null,
-    },
+  const router = useRouter();
+  const {
+    register,
+    handleSubmit,
+    formState: { errors },
+    reset,
+  } = useForm<CreateTenancyRequest>({
+    defaultValues: { startDate: new Date().toISOString().split("T")[0], endDate: null },
   });
 
   const { mutate: createTenancy, isPending, error } = useCreateTenancy(unitId);
 
   const onSubmit = (data: CreateTenancyRequest) => {
-    createTenancy(data, {
-      onSuccess: () => {
-        reset();
-        onClose();
+    const startDate = toIsoDateTime(data.startDate);
+    if (!startDate) return;
+    createTenancy(
+      { startDate, endDate: toIsoDateTime(data.endDate) },
+      {
+        // There is no "list a unit's tenancies" endpoint yet, so open the new tenancy directly.
+        onSuccess: (tenancy) => {
+          reset();
+          onClose();
+          router.push(`/app/tenancies/${tenancy.id}`);
+        },
       },
-    });
+    );
   };
 
   return (
-    <div className={styles.overlay} onClick={onClose}>
-      <div className={styles.modal} onClick={(e) => e.stopPropagation()}>
-        <div className={styles.header}>
-          <h2>Create Tenancy</h2>
-          <button className={styles.closeBtn} onClick={onClose}>✕</button>
-        </div>
+    <FormDialog
+      title="Create Tenancy"
+      submitLabel="Create Tenancy"
+      pendingLabel="Creating..."
+      isPending={isPending}
+      error={error?.message}
+      onClose={onClose}
+      onSubmit={handleSubmit(onSubmit)}
+    >
+      <FormField label="Start Date" required error={errors.startDate?.message}>
+        <Input type="date" {...register("startDate", { required: "Start date is required" })} disabled={isPending} />
+      </FormField>
 
-        <form onSubmit={handleSubmit(onSubmit)} className={styles.form}>
-          <div className={styles.formGroup}>
-            <label htmlFor="startDate">Start Date *</label>
-            <input
-              id="startDate"
-              type="date"
-              {...register("startDate", { required: "Start date is required" })}
-              disabled={isPending}
-            />
-            {errors.startDate && <span className={styles.error}>{errors.startDate.message}</span>}
-          </div>
-
-          <div className={styles.formGroup}>
-            <label htmlFor="endDate">End Date</label>
-            <input
-              id="endDate"
-              type="date"
-              {...register("endDate")}
-              disabled={isPending}
-            />
-            <span className={styles.hint}>Leave blank for open-ended tenancy</span>
-          </div>
-
-          {error && <div className={styles.errorAlert}>{error.message}</div>}
-
-          <div className={styles.footer}>
-            <button type="button" className={styles.cancelBtn} onClick={onClose} disabled={isPending}>
-              Cancel
-            </button>
-            <button type="submit" className={styles.submitBtn} disabled={isPending}>
-              {isPending ? "Creating..." : "Create Tenancy"}
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
+      <FormField label="End Date" hint="Leave blank for open-ended tenancy">
+        <Input type="date" {...register("endDate")} disabled={isPending} />
+      </FormField>
+    </FormDialog>
   );
 }

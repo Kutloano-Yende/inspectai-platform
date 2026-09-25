@@ -36,8 +36,8 @@ describe("token parity (tokens.ts ↔ tokens.css)", () => {
 describe("every CSS custom property referenced by apps/web is actually defined", () => {
   // Regression guard: apps/web's /app/* screens once referenced --color-primary, --spacing-md
   // etc. that were never defined anywhere, so the whole section rendered unstyled. This walks
-  // every CSS module under apps/web/src and fails if it finds a var(--x) name tokens.css doesn't
-  // define — the same class of bug can't silently recur.
+  // every CSS file under apps/web/src and fails if a var(--x) reference has no declaration in
+  // tokens.css or in the web app's own CSS (e.g. the coss ui variable mapping).
   const webSrcDir = fileURLToPath(new URL("../../../apps/web/src", import.meta.url));
 
   function collectCssFiles(dir: string): string[] {
@@ -53,15 +53,16 @@ describe("every CSS custom property referenced by apps/web is actually defined",
     return files;
   }
 
-  const definedTokens = new Set(
-    Array.from(css.matchAll(/^\s*(--[a-zA-Z0-9-]+):/gm)).map((m) => m[1]!),
-  );
+  const webCss = collectCssFiles(webSrcDir).map((file) => readFileSync(file, "utf8"));
+  const declared = (source: string) => Array.from(source.matchAll(/^\s*(--[a-zA-Z0-9-]+)\s*:/gm)).map((m) => m[1]!);
+  const definedTokens = new Set([css, ...webCss].flatMap(declared));
 
+  // Landing/auth pages scope their own palette (--blue, --navy...) on a wrapper class, so only
+  // the shared token families are checked.
   const usedTokens = new Set<string>();
-  for (const file of collectCssFiles(webSrcDir)) {
-    const contents = readFileSync(file, "utf8");
-    for (const m of contents.matchAll(/--(?:color|spacing|radius|shadow|font)[a-zA-Z0-9-]*/g)) {
-      usedTokens.add(m[0]);
+  for (const contents of webCss) {
+    for (const m of contents.matchAll(/var\(\s*(--(?:color|spacing|radius|shadow|font)[a-zA-Z0-9-]*)/g)) {
+      usedTokens.add(m[1]!);
     }
   }
 
@@ -70,7 +71,7 @@ describe("every CSS custom property referenced by apps/web is actually defined",
   });
 
   for (const token of Array.from(usedTokens).sort()) {
-    it(`${token} is defined in tokens.css`, () => {
+    it(`${token} is declared`, () => {
       expect(definedTokens.has(token)).toBe(true);
     });
   }

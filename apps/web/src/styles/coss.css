@@ -1,0 +1,113 @@
+/*
+ * Tailwind v4 + coss ui entry. coss components are styled with Tailwind utilities and read
+ * shadcn-style CSS variables; every variable below just points at the InspectAI tokens from
+ * @inspectai/ui (tokens.css, imported first in the root layout), so colours stay defined once.
+ */
+@layer theme, base, components, utilities;
+
+@import "tailwindcss/theme.css" layer(theme);
+@import "tailwindcss/utilities.css" layer(utilities);
+
+@custom-variant dark (&:is(.dark *));
+
+/*
+ * Tailwind's global reset (preflight) is deliberately NOT imported: it strips default heading,
+ * list and image styles that the existing CSS-Module pages rely on. coss components only need
+ * form-control and border resets, so those are applied to coss elements alone (they all carry a
+ * data-slot attribute). Utilities still win over this base layer.
+ */
+@layer base {
+  [data-slot],
+  [data-slot] *,
+  [data-slot]::before,
+  [data-slot]::after,
+  [data-slot] *::before,
+  [data-slot] *::after {
+    box-sizing: border-box;
+    border: 0 solid;
+    border-color: var(--border);
+  }
+
+  button[data-slot],
+  input[data-slot],
+  select[data-slot],
+  textarea[data-slot],
+  [data-slot] button,
+  [data-slot] input,
+  [data-slot] select,
+  [data-slot] textarea {
+    font: inherit;
+    letter-spacing: inherit;
+    color: inherit;
+    background-color: transparent;
+    border-radius: 0;
+  }
+
+  [data-slot] :where(h1, h2, h3, h4, h5, h6) {
+    font-size: inherit;
+    font-weight: inherit;
+  }
+}
+
+:root {
+  --background: var(--color-stone);
+  --foreground: var(--color-ink);
+  --card: var(--color-white);
+  --card-foreground: var(--color-ink);
+  --popover: var(--color-white);
+  --popover-foreground: var(--color-ink);
+  --primary: var(--color-blue);
+  --primary-foreground: var(--color-white);
+  --secondary: var(--color-sand);
+  --secondary-foreground: var(--color-navy);
+  --muted: var(--color-sand);
+  --muted-foreground: var(--color-muted-text);
+  --accent: var(--color-blue-light);
+  --accent-foreground: var(--color-navy);
+  --destructive: var(--color-danger);
+  --destructive-foreground: var(--color-danger);
+  --border: var(--color-border);
+  --input: var(--color-border-strong);
+  --ring: var(--color-blue);
+  --info: var(--color-info);
+  --info-foreground: var(--color-info);
+  --success: var(--color-success);
+  --success-foreground: var(--color-success);
+  --warning: var(--color-warning);
+  --warning-foreground: var(--color-warning);
+  --radius: var(--radius-md);
+  --font-heading: var(--font-sans);
+}
+
+@theme inline {
+  --color-navy: var(--color-navy);
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-info: var(--info);
+  --color-info-foreground: var(--info-foreground);
+  --color-success: var(--success);
+  --color-success-foreground: var(--success-foreground);
+  --color-warning: var(--warning);
+  --color-warning-foreground: var(--warning-foreground);
+  --radius-sm: calc(var(--radius) - 2px);
+  --radius-md: var(--radius);
+  --radius-lg: calc(var(--radius) + 2px);
+  --font-sans: var(--font-sans);
+}

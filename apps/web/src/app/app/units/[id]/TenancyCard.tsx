@@ -2,7 +2,8 @@
 
 import Link from "next/link";
 import { Tenancy } from "@inspectai/contracts";
-import styles from "./TenancyCard.module.css";
+import { InvitationStatusBadge } from "@/components/InvitationStatusBadge";
+import { Card, CardPanel } from "@/components/ui/card";
 
 interface TenancyCardProps {
   tenancy: Tenancy & { invitations?: any[] };
@@ -12,36 +13,28 @@ interface TenancyCardProps {
 export function TenancyCard({ tenancy }: TenancyCardProps) {
   const startDate = new Date(tenancy.startDate);
   const endDate = tenancy.endDate ? new Date(tenancy.endDate) : null;
-  const invitations = tenancy.invitations || [];
-  const hasInvitation = invitations.length > 0;
-  const invitation = hasInvitation ? invitations[0] : null;
+  const invitation = tenancy.invitations?.[0] ?? null;
 
   return (
-    <div className={styles.card}>
-      <div className={styles.cardHeader}>
-        <div>
-          <h3 className={styles.title}>
-            {invitation?.tenantFullName || "Unassigned"}
-          </h3>
-          {invitation?.tenantEmail && (
-            <p className={styles.email}>{invitation.tenantEmail}</p>
-          )}
+    <Card>
+      <CardPanel className="flex flex-col gap-3">
+        <div className="flex items-start justify-between gap-4">
+          <div className="flex flex-col gap-0.5">
+            <h3 className="font-semibold text-navy">{invitation?.tenantFullName || "Unassigned"}</h3>
+            {invitation?.tenantEmail && <p className="text-sm text-muted-foreground">{invitation.tenantEmail}</p>}
+          </div>
+          {invitation && <InvitationStatusBadge status={invitation.status} />}
         </div>
-        {invitation && (
-          <span className={`${styles.status} ${styles[`status-${invitation.status.toLowerCase()}`]}`}>
-            {invitation.status}
-          </span>
-        )}
-      </div>
 
-      <div className={styles.dates}>
-        <span>Start: {startDate.toLocaleDateString()}</span>
-        {endDate && <span>End: {endDate.toLocaleDateString()}</span>}
-      </div>
+        <div className="flex gap-4 text-sm text-muted-foreground">
+          <span>Start: {startDate.toLocaleDateString()}</span>
+          {endDate && <span>End: {endDate.toLocaleDateString()}</span>}
+        </div>
 
-      <Link href={`/app/tenancies/${tenancy.id}`} className={styles.manageLink}>
-        Manage Tenancy →
-      </Link>
-    </div>
+        <Link href={`/app/tenancies/${tenancy.id}`} className="text-sm font-medium text-primary hover:underline">
+          Manage Tenancy →
+        </Link>
+      </CardPanel>
+    </Card>
   );
 }

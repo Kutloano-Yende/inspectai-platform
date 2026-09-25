@@ -2,7 +2,9 @@
 
 import { useState } from "react";
 import { useRevokeInvitation } from "@/lib/hooks/usePortfolio";
-import styles from "./InvitationCard.module.css";
+import { InvitationStatusBadge } from "@/components/InvitationStatusBadge";
+import { Button } from "@/components/ui/button";
+import { Card, CardPanel } from "@/components/ui/card";
 
 interface InvitationCardProps {
   invitation: any;
@@ -17,74 +19,60 @@ export function InvitationCard({ invitation }: InvitationCardProps) {
   const isExpired = expiresAt < new Date();
 
   const handleRevoke = () => {
-    revokeInvitation(invitation.id, {
-      onSuccess: () => setConfirmRevoke(false),
-    });
+    revokeInvitation(invitation.id, { onSuccess: () => setConfirmRevoke(false) });
   };
 
   return (
-    <div className={styles.card}>
-      <div className={styles.header}>
-        <div>
-          <h3>{invitation.tenantFullName}</h3>
-          <p className={styles.email}>{invitation.tenantEmail}</p>
-          {invitation.tenantPhone && <p className={styles.phone}>{invitation.tenantPhone}</p>}
+    <Card>
+      <CardPanel className="flex flex-col gap-4">
+        <div className="flex items-start justify-between gap-4">
+          <div className="flex flex-col gap-0.5">
+            <h3 className="font-semibold text-navy">{invitation.tenantFullName}</h3>
+            <p className="text-sm text-muted-foreground">{invitation.tenantEmail}</p>
+            {invitation.tenantPhone && <p className="text-sm text-muted-foreground">{invitation.tenantPhone}</p>}
+          </div>
+          <InvitationStatusBadge status={invitation.status} />
         </div>
-        <span className={`${styles.status} ${styles[`status-${invitation.status.toLowerCase()}`]}`}>
-          {invitation.status}
-        </span>
-      </div>
 
-      <div className={styles.details}>
-        <div>
-          <label>Sent</label>
-          <p>{new Date(invitation.createdAt).toLocaleDateString()}</p>
-        </div>
-        <div>
-          <label>Expires</label>
-          <p className={isExpired ? styles.expired : ""}>{expiresAt.toLocaleDateString()}</p>
-        </div>
-        {invitation.acceptedAt && (
+        <dl className="grid grid-cols-3 gap-4 text-sm">
           <div>
-            <label>Accepted</label>
-            <p>{new Date(invitation.acceptedAt).toLocaleDateString()}</p>
+            <dt className="text-muted-foreground">Sent</dt>
+            <dd className="font-medium">{new Date(invitation.createdAt).toLocaleDateString()}</dd>
+          </div>
+          <div>
+            <dt className="text-muted-foreground">Expires</dt>
+            <dd className={isExpired ? "font-medium text-destructive-foreground" : "font-medium"}>
+              {expiresAt.toLocaleDateString()}
+            </dd>
+          </div>
+          {invitation.acceptedAt && (
+            <div>
+              <dt className="text-muted-foreground">Accepted</dt>
+              <dd className="font-medium">{new Date(invitation.acceptedAt).toLocaleDateString()}</dd>
+            </div>
+          )}
+        </dl>
+
+        {invitation.status === "PENDING" && !isExpired && (
+          <div className="flex items-center gap-3 border-t pt-4">
+            {!confirmRevoke ? (
+              <Button variant="destructive-outline" size="sm" onClick={() => setConfirmRevoke(true)} disabled={isPending}>
+                Revoke Invitation
+              </Button>
+            ) : (
+              <>
+                <p className="text-sm text-muted-foreground">Are you sure?</p>
+                <Button variant="outline" size="sm" onClick={() => setConfirmRevoke(false)} disabled={isPending}>
+                  Cancel
+                </Button>
+                <Button variant="destructive" size="sm" onClick={handleRevoke} disabled={isPending}>
+                  {isPending ? "Revoking..." : "Confirm Revoke"}
+                </Button>
+              </>
+            )}
           </div>
         )}
-      </div>
-
-      {invitation.status === "PENDING" && !isExpired && (
-        <div className={styles.actions}>
-          {!confirmRevoke ? (
-            <button
-              className={styles.revokeBtn}
-              onClick={() => setConfirmRevoke(true)}
-              disabled={isPending}
-            >
-              Revoke Invitation
-            </button>
-          ) : (
-            <>
-              <p className={styles.confirmText}>Are you sure?</p>
-              <div className={styles.confirmButtons}>
-                <button
-                  className={styles.cancelBtn}
-                  onClick={() => setConfirmRevoke(false)}
-                  disabled={isPending}
-                >
-                  Cancel
-                </button>
-                <button
-                  className={styles.confirmBtn}
-                  onClick={handleRevoke}
-                  disabled={isPending}
-                >
-                  {isPending ? "Revoking..." : "Confirm Revoke"}
-                </button>
-              </div>
-            </>
-          )}
-        </div>
-      )}
-    </div>
+      </CardPanel>
+    </Card>
   );
 }

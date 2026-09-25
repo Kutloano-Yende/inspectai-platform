@@ -3,9 +3,9 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { LoadingState, ErrorState, EmptyState } from "@/components/States";
+import { Button } from "@/components/ui/button";
 import { CreateTenancyModal } from "./CreateTenancyModal";
 import { TenancyCard } from "./TenancyCard";
-import styles from "./page.module.css";
 import type { Tenancy } from "@inspectai/contracts";
 
 interface UnitPageProps {
@@ -18,8 +18,7 @@ export default function UnitPage({ params }: UnitPageProps) {
   const { data: tenancies, isLoading, error } = useQuery<Tenancy[]>({
     queryKey: ["unit-tenancies", params.id],
     queryFn: async () => {
-      // We need a way to get unit tenancies - for now this would need an endpoint
-      // that lists tenancies for a unit
+      // The API has no "list a unit's tenancies" endpoint yet; creating a tenancy opens its page directly.
       return [];
     },
   });
@@ -28,32 +27,26 @@ export default function UnitPage({ params }: UnitPageProps) {
   if (error) return <ErrorState message={error?.message || "Error loading unit"} />;
 
   return (
-    <div className={styles.container}>
-      <div className={styles.header}>
-        <div>
-          <h1>Unit Tenancies</h1>
-          <p className={styles.subtitle}>Manage tenants and their tenancy agreements</p>
+    <div className="flex flex-col gap-6">
+      <div className="flex items-start justify-between gap-4">
+        <div className="flex flex-col gap-1">
+          <h1 className="text-2xl font-bold tracking-tight text-navy">Unit Tenancies</h1>
+          <p className="text-sm text-muted-foreground">Manage tenants and their tenancy agreements</p>
         </div>
-        <button className={styles.createBtn} onClick={() => setShowCreateTenancyModal(true)}>
-          + New Tenancy
-        </button>
+        <Button onClick={() => setShowCreateTenancyModal(true)}>+ New Tenancy</Button>
       </div>
 
-      <div className={styles.content}>
-        {!tenancies || tenancies.length === 0 ? (
-          <EmptyState message="No tenancies yet. Create one to start managing a tenant." />
-        ) : (
-          <div className={styles.tenanciesList}>
-            {tenancies.map((tenancy) => (
-              <TenancyCard key={tenancy.id} tenancy={tenancy} unitId={params.id} />
-            ))}
-          </div>
-        )}
-      </div>
-
-      {showCreateTenancyModal && (
-        <CreateTenancyModal unitId={params.id} onClose={() => setShowCreateTenancyModal(false)} />
+      {!tenancies || tenancies.length === 0 ? (
+        <EmptyState message="No tenancies yet. Create one to start managing a tenant." />
+      ) : (
+        <div className="flex flex-col gap-4">
+          {tenancies.map((tenancy) => (
+            <TenancyCard key={tenancy.id} tenancy={tenancy} unitId={params.id} />
+          ))}
+        </div>
       )}
+
+      {showCreateTenancyModal && <CreateTenancyModal unitId={params.id} onClose={() => setShowCreateTenancyModal(false)} />}
     </div>
   );
 }

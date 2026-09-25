@@ -3,9 +3,10 @@
 import { useState } from "react";
 import { useTenancy } from "@/lib/hooks/usePortfolio";
 import { LoadingState, ErrorState } from "@/components/States";
+import { Button } from "@/components/ui/button";
+import { Card, CardPanel } from "@/components/ui/card";
 import { CreateInvitationModal } from "./CreateInvitationModal";
 import { InvitationCard } from "./InvitationCard";
-import styles from "./page.module.css";
 
 interface TenancyPageProps {
   params: { id: string };
@@ -25,54 +26,48 @@ export default function TenancyPage({ params }: TenancyPageProps) {
   const activeInvitation = invitations.find((inv: any) => inv.status === "PENDING" || inv.status === "ACCEPTED");
 
   return (
-    <div className={styles.container}>
-      <div className={styles.header}>
-        <div>
-          <h1>Tenancy</h1>
-          <p className={styles.subtitle}>Manage tenant and lease dates</p>
-        </div>
+    <div className="flex flex-col gap-8">
+      <div className="flex flex-col gap-1">
+        <h1 className="text-2xl font-bold tracking-tight text-navy">Tenancy</h1>
+        <p className="text-sm text-muted-foreground">Manage tenant and lease dates</p>
       </div>
 
-      <div className={styles.card}>
-        <h2>Lease Dates</h2>
-        <div className={styles.dates}>
-          <div>
-            <label>Start Date</label>
-            <p>{startDate.toLocaleDateString()}</p>
-          </div>
-          {endDate && (
+      <Card>
+        <CardPanel className="flex flex-col gap-4">
+          <h2 className="text-lg font-semibold">Lease Dates</h2>
+          <dl className="grid grid-cols-2 gap-4 text-sm">
             <div>
-              <label>End Date</label>
-              <p>{endDate.toLocaleDateString()}</p>
+              <dt className="text-muted-foreground">Start Date</dt>
+              <dd className="font-medium">{startDate.toLocaleDateString()}</dd>
             </div>
-          )}
-          {!endDate && (
             <div>
-              <label>Status</label>
-              <p>Open-ended</p>
+              <dt className="text-muted-foreground">{endDate ? "End Date" : "Status"}</dt>
+              <dd className="font-medium">{endDate ? endDate.toLocaleDateString() : "Open-ended"}</dd>
             </div>
-          )}
-        </div>
-      </div>
+          </dl>
+        </CardPanel>
+      </Card>
 
-      <div className={styles.section}>
-        <div className={styles.sectionHeader}>
-          <h2>Tenant Invitation</h2>
+      <section className="flex flex-col gap-4">
+        <div className="flex items-center justify-between gap-4">
+          <h2 className="text-lg font-semibold">Tenant Invitation</h2>
           {!activeInvitation && (
-            <button className={styles.createBtn} onClick={() => setShowCreateInvitationModal(true)}>
+            <Button size="sm" onClick={() => setShowCreateInvitationModal(true)}>
               + Invite Tenant
-            </button>
+            </Button>
           )}
         </div>
 
         {activeInvitation ? (
           <InvitationCard invitation={activeInvitation} tenancyId={params.id} />
         ) : (
-          <div className={styles.emptyState}>
-            <p>No active invitation. Create one to send to a tenant.</p>
-          </div>
+          <Card className="border-dashed">
+            <CardPanel className="py-8 text-center text-sm text-muted-foreground">
+              No active invitation. Create one to send to a tenant.
+            </CardPanel>
+          </Card>
         )}
-      </div>
+      </section>
 
       {showCreateInvitationModal && (
         <CreateInvitationModal tenancyId={params.id} onClose={() => setShowCreateInvitationModal(false)} />

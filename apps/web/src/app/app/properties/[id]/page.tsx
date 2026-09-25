@@ -3,9 +3,11 @@
 import { useState } from "react";
 import { useProperty } from "@/lib/hooks/usePortfolio";
 import { LoadingState, ErrorState } from "@/components/States";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card, CardPanel } from "@/components/ui/card";
 import { CreateUnitModal } from "./CreateUnitModal";
 import { UnitsSection } from "./UnitsSection";
-import styles from "./page.module.css";
 
 interface PropertyPageProps {
   params: { id: string };
@@ -20,44 +22,46 @@ export default function PropertyPage({ params }: PropertyPageProps) {
   if (!property) return <ErrorState message="Property not found" />;
 
   return (
-    <div className={styles.container}>
-      <div className={styles.header}>
-        <div>
-          <h1>{property.displayName}</h1>
-          <p className={styles.address}>
-            {property.address.line1}
-            {property.address.line2 && `, ${property.address.line2}`}
-          </p>
-          <p className={styles.city}>{property.address.city}, {property.address.province} {property.address.postalCode}</p>
-        </div>
-        <span className={styles.type}>{property.propertyType}</span>
-      </div>
-
-      <div className={styles.content}>
-        <div className={styles.section}>
-          <div className={styles.sectionHeader}>
-            <h2>Units</h2>
-            <button className={styles.addBtn} onClick={() => setShowCreateUnitModal(true)}>
-              + Add Unit
-            </button>
+    <div className="flex flex-col gap-8">
+      <Card>
+        <CardPanel className="flex items-start justify-between gap-4">
+          <div className="flex flex-col gap-1">
+            <h1 className="text-2xl font-bold tracking-tight text-navy">{property.displayName}</h1>
+            <p className="text-sm text-muted-foreground">
+              {property.address.line1}
+              {property.address.line2 && `, ${property.address.line2}`}
+            </p>
+            <p className="text-sm text-muted-foreground">
+              {property.address.city}, {property.address.province} {property.address.postalCode}
+            </p>
           </div>
+          <Badge variant="secondary">{property.propertyType}</Badge>
+        </CardPanel>
+      </Card>
 
-          {property.units && property.units.length > 0 ? (
-            <UnitsSection units={property.units} propertyId={property.id} />
-          ) : (
-            <div className={styles.emptyState}>
-              <p>No units yet. Create your first unit to start managing tenancies.</p>
-              <button className={styles.emptyActionBtn} onClick={() => setShowCreateUnitModal(true)}>
-                Add First Unit
-              </button>
-            </div>
-          )}
+      <section className="flex flex-col gap-4">
+        <div className="flex items-center justify-between gap-4">
+          <h2 className="text-lg font-semibold">Units</h2>
+          <Button size="sm" onClick={() => setShowCreateUnitModal(true)}>
+            + Add Unit
+          </Button>
         </div>
-      </div>
 
-      {showCreateUnitModal && (
-        <CreateUnitModal propertyId={property.id} onClose={() => setShowCreateUnitModal(false)} />
-      )}
+        {property.units && property.units.length > 0 ? (
+          <UnitsSection units={property.units} propertyId={property.id} />
+        ) : (
+          <Card className="border-dashed">
+            <CardPanel className="flex flex-col items-center gap-3 py-10 text-center">
+              <p className="text-sm text-muted-foreground">
+                No units yet. Create your first unit to start managing tenancies.
+              </p>
+              <Button onClick={() => setShowCreateUnitModal(true)}>Add First Unit</Button>
+            </CardPanel>
+          </Card>
+        )}
+      </section>
+
+      {showCreateUnitModal && <CreateUnitModal propertyId={property.id} onClose={() => setShowCreateUnitModal(false)} />}
     </div>
   );
 }

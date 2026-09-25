@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Providers } from "./providers";
 import "@inspectai/ui/tokens.css";
 import "./globals.css";
+import "@/styles/coss.css";
 
 export const metadata: Metadata = {
   title: "InspectAI — Property Inspections Without the Guesswork",
