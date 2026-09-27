@@ -16,10 +16,8 @@
     "dev:web": "pnpm --filter @inspectai/web dev",
     "test:e2e": "pnpm --filter @inspectai/e2e test"
   },
-  "devDependencies": {
-    "prisma": "^5.18.0"
-  },
   "dependencies": {
+    "prisma": "^5.18.0",
     "@prisma/client": "5.22.0"
   }
 }
