@@ -1,5 +1,6 @@
 import { Module } from "@nestjs/common";
 import { APP_GUARD } from "@nestjs/core";
+import { HealthController } from "./health.controller.js";
 import { PrismaModule } from "./prisma/prisma.module.js";
 import { AuditModule } from "./audit/audit.module.js";
 import { AuthGuard } from "./auth/auth.guard.js";
@@ -23,6 +24,7 @@ import { InspectionModule } from "./inspection/inspection.module.js";
     TenancyModule,
     InspectionModule,
   ],
+  controllers: [HealthController],
   providers: [{ provide: APP_GUARD, useClass: AuthGuard }],
 })
 export class AppModule {}

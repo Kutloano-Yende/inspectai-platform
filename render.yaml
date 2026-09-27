@@ -1,0 +1,52 @@
+services:
+  - type: web
+    name: inspectai-api
+    runtime: node
+    plan: free
+    region: oregon
+    branch: main
+    rootDir: .
+    buildCommand: >-
+      corepack enable &&
+      corepack prepare pnpm@9.7.0 --activate &&
+      pnpm install --frozen-lockfile &&
+      pnpm exec prisma generate &&
+      pnpm --filter @inspectai/contracts build &&
+      pnpm --filter @inspectai/domain build &&
+      pnpm --filter @inspectai/storage build &&
+      pnpm --filter @inspectai/api build
+    startCommand: pnpm exec prisma migrate deploy && node apps/api/dist/main.js
+    healthCheckPath: /api/v1/health
+    envVars:
+      - key: NODE_VERSION
+        value: 20.18.0
+      - key: NODE_ENV
+        value: production
+      - key: DATABASE_URL
+        fromDatabase:
+          name: inspectai-db
+          property: connectionString
+      # Update if the Vercel URL changes (custom domain, renamed project, etc).
+      - key: CORS_ORIGINS
+        value: https://inspectai-web-ten.vercel.app
+      - key: WEB_APP_URL
+        value: https://inspectai-web-ten.vercel.app
+      # Optional — evidence upload won't work without these, but sign-in doesn't need them.
+      # Fill in via the Render dashboard (Environment tab) if/when you set up S3 or R2.
+      - key: S3_ENDPOINT
+        sync: false
+      - key: S3_REGION
+        sync: false
+      - key: S3_ACCESS_KEY
+        sync: false
+      - key: S3_SECRET_KEY
+        sync: false
+      - key: S3_EVIDENCE_BUCKET
+        sync: false
+      - key: S3_REPORTS_BUCKET
+        sync: false
+
+databases:
+  - name: inspectai-db
+    plan: free
+    region: oregon
