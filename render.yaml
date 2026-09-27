@@ -6,10 +6,14 @@ services:
     region: oregon
     branch: main
     rootDir: .
+    # --prod=false: NODE_ENV=production (below) would otherwise make pnpm skip every
+    # package's devDependencies, including the typescript/@types/node each workspace
+    # package needs to build (tsc). Those never ship — only what `pnpm build` emits to
+    # dist/ does — so this doesn't affect what's actually running.
     buildCommand: >-
       corepack enable &&
       corepack prepare pnpm@9.7.0 --activate &&
-      pnpm install --frozen-lockfile &&
+      pnpm install --frozen-lockfile --prod=false &&
       pnpm exec prisma generate &&
       pnpm --filter @inspectai/contracts build &&
       pnpm --filter @inspectai/domain build &&
