@@ -87,21 +87,25 @@ export function readCookie(req: Request, name: string): string | undefined {
   return undefined;
 }
 
+// Cookies are served over HTTPS in every hosted environment (Railway/Vercel); Secure is safe
+// to add there and must stay off for local http://localhost dev, where browsers drop it.
+const COOKIE_SECURITY = process.env.NODE_ENV === "production" ? "; Secure" : "";
+
 export function sessionCookie(token: string): string {
-  return `${SESSION_COOKIE}=${encodeURIComponent(token)}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${SESSION_TTL_DAYS * 24 * 60 * 60}`;
+  return `${SESSION_COOKIE}=${encodeURIComponent(token)}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${SESSION_TTL_DAYS * 24 * 60 * 60}${COOKIE_SECURITY}`;
 }
 
 export function clearedSessionCookie(): string {
-  return `${SESSION_COOKIE}=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0`;
+  return `${SESSION_COOKIE}=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0${COOKIE_SECURITY}`;
 }
 
 export const OAUTH_STATE_COOKIE = "inspectai_oauth_state";
 
 /** Short-lived CSRF-state cookie for the Google OAuth round trip. */
 export function oauthStateCookie(state: string): string {
-  return `${OAUTH_STATE_COOKIE}=${encodeURIComponent(state)}; Path=/; HttpOnly; SameSite=Lax; Max-Age=600`;
+  return `${OAUTH_STATE_COOKIE}=${encodeURIComponent(state)}; Path=/; HttpOnly; SameSite=Lax; Max-Age=600${COOKIE_SECURITY}`;
 }
 
 export function clearedOauthStateCookie(): string {
-  return `${OAUTH_STATE_COOKIE}=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0`;
+  return `${OAUTH_STATE_COOKIE}=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0${COOKIE_SECURITY}`;
 }

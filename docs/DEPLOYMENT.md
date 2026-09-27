@@ -1,7 +1,49 @@
 # InspectAI Deployment Guide
 
 **Status:** Stage 5 deployment configuration (landlord inspection vertical slice)  
-**Last Updated:** 2026-09-16  
+**Last Updated:** 2026-09-27  
+
+---
+
+## Current Deployment: Web on Vercel, API on Railway
+
+This is the setup actually in use today (a preview/demo deployment, not the generic
+self-hosted guide below). Jobs worker, Redis, and social sign-in are not part of it.
+
+**Web** — `apps/web`, Vercel project `inspectai-web`, root directory `apps/web`.
+Build config lives in [`apps/web/vercel.json`](../apps/web/vercel.json) (installs from the
+workspace root, builds `@inspectai/ui` and `@inspectai/contracts` before `next build`, since
+the web app imports both from `dist`).
+
+**API** — `apps/api`, deployed separately on Railway (Postgres included). Root directory is
+the repo root; build/start commands live in [`railway.json`](../railway.json) at the repo
+root (builds `@inspectai/contracts` → `@inspectai/domain` → `@inspectai/storage` →
+`@inspectai/api` in dependency order, generates the Prisma client, runs
+`prisma migrate deploy` before `node apps/api/dist/main.js` on every deploy).
+
+**Why a Vercel rewrite, not a direct cross-domain call:** Vercel (`*.vercel.app`) and Railway
+(`*.up.railway.app`) are different sites from a cookie's perspective, so a browser will not
+send a `SameSite=Lax` cookie set by one to the other — auth would silently fail even with CORS
+configured correctly. [`apps/web/next.config.js`](../apps/web/next.config.js) instead proxies
+`/api/v1/*` on the Vercel domain to `API_ORIGIN` (the Railway URL) server-side; the browser
+only ever talks to its own origin, so the cookie stays first-party. This only works because
+the API doesn't set a cookie `Domain` attribute.
+
+Setup, once you have a Railway account and a Postgres instance attached to the API service:
+
+1. On Railway (API service → Variables): set `DATABASE_URL` (Railway provides this from the
+   attached Postgres), `NODE_ENV=production`, `CORS_ORIGINS` and `WEB_APP_URL` to the Vercel
+   URL (e.g. `https://inspectai-web-ten.vercel.app`). `PORT` is set by Railway automatically.
+   Storage (`S3_*`) and social sign-in vars are optional — see the tables below.
+2. On Vercel (project → Settings → Environment Variables): set `API_ORIGIN` to the Railway
+   service's public URL (no trailing slash, no `/api/v1`) and `NEXT_PUBLIC_API_URL=/api/v1`
+   (relative, so requests go through the proxy above, not straight to Railway). Redeploy after
+   changing either — both are read at build time.
+3. Confirm: open the Vercel URL, sign up, and check the request in DevTools → Network goes to
+   the Vercel origin's own `/api/v1/auth/register`, not `localhost` or the Railway domain.
+
+The generic guide below (self-hosted Nginx, S3/R2, Jobs worker, Redis) still applies if/when
+this moves off Vercel/Railway, or when Phase 5+ brings AI analysis (Jobs + Redis) online.
 
 ---
 

@@ -1,0 +1,17 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "web-dev",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": ["--filter", "@inspectai/web", "dev"],
+      "port": 3000
+    },
+    {
+      "name": "web-dev-3001",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": ["--filter", "@inspectai/web", "dev", "-p", "3001"],
+      "port": 3001
+    }
+  ]
+}
