@@ -28,6 +28,7 @@ export function AppLayout({ children }: AppLayoutProps) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   const handleLogout = async () => {
+    setMobileMenuOpen(false);
     await logout();
     window.location.href = "/login";
   };
@@ -87,6 +88,12 @@ export function AppLayout({ children }: AppLayoutProps) {
               {item.label}
             </Link>
           ))}
+          <div className={styles.mobileUserMenu}>
+            {user && <span className={styles.userEmail}>{user.email}</span>}
+            <button onClick={handleLogout} className={styles.logoutBtn}>
+              Logout
+            </button>
+          </div>
         </nav>
       )}
 
