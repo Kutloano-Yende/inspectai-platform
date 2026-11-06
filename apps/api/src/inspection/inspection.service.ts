@@ -11,7 +11,7 @@ import { ConflictError, NotFoundError } from "../shared/errors.js";
 import type { S3Storage } from "@inspectai/storage";
 import type { Principal } from "../auth/principal.js";
 import { STORAGE } from "../queue/tokens.js";
-import { generateToken, sha256 } from "../shared/crypto.js";
+import { generateToken, sha256, sha256Buffer } from "../shared/crypto.js";
 
 const EVIDENCE_UPLOAD_TTL_MINUTES = 15;
 
@@ -103,6 +103,9 @@ export class InspectionService {
       },
     });
     if (!row) throw new NotFoundError("Inspection not found");
+    if (principal.type === "invitation" && principal.tenancyId !== row.tenancyId) {
+      throw new NotFoundError("Inspection not found");
+    }
     this.org.assertMembership(principal, row.organizationId);
     return await this.mapDetail(row);
   }
@@ -306,19 +309,37 @@ export class InspectionService {
 
     const nonce = generateToken();
     const storageKey = `org/${inspection.organizationId}/inspection/${inspection.id}/${dto.checkpointId}/${generateToken().slice(0, 8)}.${this.getExtension(dto.contentType)}`;
+    const expiresAt = new Date(Date.now() + EVIDENCE_UPLOAD_TTL_MINUTES * 60_000);
 
-    const evidence = await this.prisma.evidence.create({
-      data: {
-        inspectionId: inspection.id,
-        checkpointId: dto.checkpointId,
-        kind: dto.kind,
-        storageKey,
-        contentSha256: dto.contentSha256,
-        bytes: dto.contentLengthBytes,
-        capturedAt: new Date(dto.capturedAt),
-        gps: (dto.gps || null) as unknown as Prisma.InputJsonValue,
-        verification: { freshnessVerified: false, duplicateDetected: false, qualityAcceptable: false },
-      },
+    const evidence = await this.prisma.$transaction(async (tx) => {
+      const ev = await tx.evidence.create({
+        data: {
+          inspectionId: inspection.id,
+          checkpointId: dto.checkpointId,
+          kind: dto.kind,
+          storageKey,
+          contentSha256: dto.contentSha256,
+          bytes: dto.contentLengthBytes,
+          capturedAt: new Date(dto.capturedAt),
+          gps: (dto.gps || null) as unknown as Prisma.InputJsonValue,
+          deviceMetadata: dto.deviceMetadata as unknown as Prisma.InputJsonValue,
+          verification: { freshnessVerified: false, duplicateDetected: false, qualityAcceptable: false, notes: [] },
+        },
+      });
+      // Binds this upload to a single verifiable capture: the nonce must come back
+      // unchanged at commit time, and the ticket can only ever be consumed once.
+      await tx.uploadTicket.create({
+        data: {
+          inspectionId: inspection.id,
+          checkpointId: dto.checkpointId,
+          evidenceId: ev.id,
+          storageKey,
+          nonceHash: sha256(nonce),
+          contentSha256: dto.contentSha256,
+          expiresAt,
+        },
+      });
+      return ev;
     });
 
     const uploadUrl = await this.storage.presignPut(
@@ -343,14 +364,14 @@ export class InspectionService {
       storageKey,
       evidenceId: evidence.id,
       captureNonce: nonce,
-      expiresAt: new Date(Date.now() + EVIDENCE_UPLOAD_TTL_MINUTES * 60_000).toISOString(),
+      expiresAt: expiresAt.toISOString(),
     };
   }
 
   async commitEvidence(principal: Principal, dto: CommitEvidenceRequest) {
     const evidence = await this.prisma.evidence.findUnique({
       where: { id: dto.evidenceId },
-      include: { inspection: true },
+      include: { inspection: true, uploadTicket: true },
     });
     if (!evidence) throw new NotFoundError("Evidence not found");
 
@@ -366,10 +387,31 @@ export class InspectionService {
       }
     }
 
+    const ticket = evidence.uploadTicket;
+    if (!ticket) throw new NotFoundError("Upload ticket not found for this evidence");
+    if (sha256(dto.captureNonce) !== ticket.nonceHash) {
+      throw new ConflictError("INVALID_CAPTURE_NONCE", "Capture nonce does not match the issued upload ticket");
+    }
     const now = new Date();
-    const issuedAt = new Date(now.getTime() - EVIDENCE_UPLOAD_TTL_MINUTES * 60_000);
+    if (ticket.expiresAt <= now) {
+      throw new ConflictError("UPLOAD_TICKET_EXPIRED", "Upload ticket has expired; request a new one");
+    }
+    if (ticket.usedAt != null) {
+      throw new ConflictError("EVIDENCE_ALREADY_COMMITTED", "This evidence has already been committed");
+    }
 
-    const freshnessVerified = isCaptureFresh(evidence.capturedAt, issuedAt, now);
+    // Server verifies the object exists and its hash matches before accepting it (ARCHITECTURE.md §7.2).
+    const bucket = process.env.S3_EVIDENCE_BUCKET ?? "inspectai-evidence";
+    const exists = await this.storage.objectExists(bucket, evidence.storageKey);
+    if (!exists) {
+      throw new ConflictError("EVIDENCE_OBJECT_MISSING", "Uploaded object was not found in storage");
+    }
+    const bytes = await this.storage.getObjectBuffer(bucket, evidence.storageKey);
+    if (sha256Buffer(bytes) !== evidence.contentSha256) {
+      throw new ConflictError("EVIDENCE_HASH_MISMATCH", "Uploaded object does not match the declared content hash");
+    }
+
+    const freshnessVerified = isCaptureFresh(evidence.capturedAt, ticket.createdAt, now);
     const qualityAcceptable = isQualityAcceptable(); // No dimensions available client-side in commit
 
     const existingHashes = await this.prisma.evidence
@@ -381,18 +423,25 @@ export class InspectionService {
 
     const duplicateDetected = isDuplicateWithinInspection(evidence.contentSha256, existingHashes);
 
+    const notes: string[] = [];
+    if (!freshnessVerified) notes.push("Capture was not within the required freshness window.");
+    if (duplicateDetected) notes.push("This photo's content matches evidence already committed for this inspection.");
+    if (!qualityAcceptable) notes.push("Image quality could not be verified as acceptable.");
+
     const verification = {
       freshnessVerified,
       duplicateDetected,
       qualityAcceptable,
+      notes,
     };
 
-    const updated = await this.prisma.evidence.update({
-      where: { id: evidence.id },
-      data: {
-        verification,
-        committedAt: now,
-      },
+    const updated = await this.prisma.$transaction(async (tx) => {
+      const ev = await tx.evidence.update({
+        where: { id: evidence.id },
+        data: { verification, committedAt: now },
+      });
+      await tx.uploadTicket.update({ where: { id: ticket.id }, data: { usedAt: now } });
+      return ev;
     });
 
     await this.audit.record({

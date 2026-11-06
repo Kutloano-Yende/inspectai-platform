@@ -1,12 +1,13 @@
 import { Inject, Injectable } from "@nestjs/common";
 import { CreateInvitationRequest, CreateTenancyRequest } from "@inspectai/contracts";
-import { AuditAction, assertInvitationUsable } from "@inspectai/domain";
+import { AuditAction, InvalidTransitionError, assertInvitationUsable, assertTransition, InvitationNotUsableError } from "@inspectai/domain";
 import { PrismaService } from "../prisma/prisma.service.js";
 import { AuditService } from "../audit/audit.service.js";
 import { OrgAccessService, PORTFOLIO_ROLES } from "../org/org-access.service.js";
 import { ConflictError, NotFoundError } from "../shared/errors.js";
 import { generateToken, sha256 } from "../shared/crypto.js";
 import type { Principal } from "../auth/principal.js";
+import { mapInspection } from "../inspection/inspection.service.js";
 
 const INVITATION_TTL_DAYS = 14;
 
@@ -46,11 +47,15 @@ export class TenancyService {
   async getTenancy(principal: Principal, id: string) {
     const row = await this.prisma.tenancy.findUnique({
       where: { id },
-      include: { invitations: true },
+      include: { invitations: true, inspections: { orderBy: { createdAt: "desc" } } },
     });
     if (!row) throw new NotFoundError("Tenancy not found");
     this.org.assertMembership(principal, row.organizationId);
-    return { ...this.mapTenancy(row), invitations: row.invitations.map(mapInvitation) };
+    return {
+      ...this.mapTenancy(row),
+      invitations: row.invitations.map(mapInvitation),
+      inspections: row.inspections.map(mapInspection),
+    };
   }
 
   async createInvitation(principal: Principal, tenancyId: string, dto: CreateInvitationRequest) {
@@ -116,6 +121,11 @@ export class TenancyService {
     return mapInvitation(updated);
   }
 
+  /**
+   * Accepting the invitation is what starts the inspection: in one step it moves the
+   * tenancy's draft inspection DRAFT -> INVITED -> IN_PROGRESS, the only code path that
+   * ever does so. Requires a DRAFT inspection to already exist (the landlord creates it).
+   */
   async acceptInvitation(principal: Principal) {
     if (principal.type !== "invitation" || !principal.invitationId) {
       throw new ConflictError("INVALID_PRINCIPAL", "Invitation token required");
@@ -124,12 +134,46 @@ export class TenancyService {
     const row = await this.prisma.tenantInvitation.findUnique({ where: { id: principal.invitationId } });
     if (!row) throw new NotFoundError("Invitation not found");
 
-    assertInvitationUsable(row.status as never, new Date(), row.expiresAt);
+    try {
+      assertInvitationUsable(row.status as never, new Date(), row.expiresAt);
+    } catch (err) {
+      if (err instanceof InvitationNotUsableError) {
+        if (row.status === "ACCEPTED") throw new ConflictError("INVITATION_ALREADY_ACCEPTED", "Invitation already accepted");
+        if (row.status === "REVOKED") throw new ConflictError("INVITATION_REVOKED", "Invitation has been revoked");
+        throw new ConflictError("INVITATION_EXPIRED", "Invitation has expired");
+      }
+      throw err;
+    }
 
-    const updated = await this.prisma.tenantInvitation.update({
-      where: { id: row.id },
-      data: { status: "ACCEPTED", acceptedAt: new Date() },
+    const draftInspection = await this.prisma.inspection.findFirst({
+      where: { tenancyId: row.tenancyId, status: "DRAFT" },
+      orderBy: { createdAt: "desc" },
     });
+    if (!draftInspection) {
+      throw new ConflictError("NO_DRAFT_INSPECTION", "No inspection is ready for this tenancy yet");
+    }
+
+    try {
+      assertTransition(draftInspection.status as never, "INVITED");
+      assertTransition("INVITED" as never, "IN_PROGRESS");
+    } catch (err) {
+      if (err instanceof InvalidTransitionError) {
+        throw new ConflictError("INVALID_STATE", `Cannot start inspection in ${draftInspection.status} state`);
+      }
+      throw err;
+    }
+
+    const [updatedInvitation, updatedInspection] = await this.prisma.$transaction([
+      this.prisma.tenantInvitation.update({
+        where: { id: row.id },
+        data: { status: "ACCEPTED", acceptedAt: new Date() },
+      }),
+      this.prisma.inspection.update({
+        where: { id: draftInspection.id },
+        data: { status: "IN_PROGRESS", invitationId: row.id },
+      }),
+    ]);
+
     await this.audit.record({
       organizationId: row.organizationId,
       actorType: "INVITATION_TOKEN",
@@ -138,7 +182,40 @@ export class TenancyService {
       entityId: row.id,
       metadata: { tenantEmail: row.tenantEmail },
     });
-    return mapInvitation(updated);
+    await this.audit.record({
+      organizationId: row.organizationId,
+      actorType: "INVITATION_TOKEN",
+      action: AuditAction.InspectionStarted,
+      entityType: "Inspection",
+      entityId: updatedInspection.id,
+      metadata: { invitationId: row.id },
+    });
+
+    return { invitation: mapInvitation(updatedInvitation), inspection: mapInspection(updatedInspection) };
+  }
+
+  /** Read-only: lets a token principal see which property/inspection their invitation is for. */
+  async getMyInvitation(principal: Principal) {
+    if (principal.type !== "invitation" || !principal.invitationId) {
+      throw new ConflictError("INVALID_PRINCIPAL", "Invitation token required");
+    }
+
+    const row = await this.prisma.tenantInvitation.findUnique({
+      where: { id: principal.invitationId },
+      include: { tenancy: { include: { unit: { include: { property: true } } } } },
+    });
+    if (!row) throw new NotFoundError("Invitation not found");
+
+    const inspection = await this.prisma.inspection.findFirst({
+      where: { tenancyId: row.tenancyId, OR: [{ status: "DRAFT" }, { invitationId: row.id }] },
+      orderBy: { createdAt: "desc" },
+    });
+
+    return {
+      invitation: mapInvitation(row),
+      property: { displayName: row.tenancy.unit.property.displayName },
+      inspection: inspection ? { id: inspection.id, status: inspection.status } : null,
+    };
   }
 
   private mapTenancy(row: any) {

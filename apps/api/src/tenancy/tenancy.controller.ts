@@ -44,4 +44,9 @@ export class TenancyController {
   acceptInvitation(@CurrentUser() principal: Principal) {
     return this.tenancy.acceptInvitation(principal);
   }
+
+  @Get("invitations/me")
+  getMyInvitation(@CurrentUser() principal: Principal) {
+    return this.tenancy.getMyInvitation(principal);
+  }
 }

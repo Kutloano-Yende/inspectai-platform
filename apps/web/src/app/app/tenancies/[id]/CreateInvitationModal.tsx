@@ -26,6 +26,8 @@ export function CreateInvitationModal({ tenancyId, onClose }: CreateInvitationMo
   });
 
   const { mutate: createInvitation, isPending, error, data } = useCreateInvitation(tenancyId);
+  const inviteUrl =
+    data && typeof window !== "undefined" ? `${window.location.origin}/invite/${data.invitationToken}` : "";
 
   const onSubmit = ({ tenantPhone, ...values }: CreateInvitationRequest) => {
     // The contract rejects an empty phone string; an untouched optional field must be omitted.
@@ -44,12 +46,12 @@ export function CreateInvitationModal({ tenancyId, onClose }: CreateInvitationMo
               <AlertTitle>Invitation sent successfully</AlertTitle>
             </Alert>
             <div className="flex flex-col gap-2">
-              <p className="text-sm font-medium">Invitation Token</p>
+              <p className="text-sm font-medium">Invite Link</p>
               <p className="select-all break-all rounded-lg border bg-muted px-3 py-2 font-mono text-sm">
-                {data.invitationToken}
+                {inviteUrl}
               </p>
               <p className="text-xs text-muted-foreground">
-                Share this token with the tenant or copy it to send via email.
+                Send this link to the tenant. They open it on their phone, no account needed.
               </p>
             </div>
           </DialogPanel>

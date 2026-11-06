@@ -32,7 +32,13 @@ export class AuthGuard implements CanActivate {
       const invitation = await this.prisma.tenantInvitation.findUnique({
         where: { tokenHash: sha256(invitationToken) },
       });
-      if (invitation && invitation.status === "PENDING" && invitation.expiresAt > new Date()) {
+      // PENDING: not yet accepted. ACCEPTED: the tenant has started capture and the same
+      // token keeps authenticating the rest of the flow. REVOKED/EXPIRED never authenticate.
+      if (
+        invitation &&
+        (invitation.status === "PENDING" || invitation.status === "ACCEPTED") &&
+        invitation.expiresAt > new Date()
+      ) {
         req.principal = {
           type: "invitation",
           invitationId: invitation.id,

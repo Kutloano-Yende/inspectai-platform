@@ -2,7 +2,7 @@
 
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { fetchApi } from "../api";
-import type { Property, Unit, Tenancy, CreatePropertyRequest, CreateUnitRequest, CreateTenancyRequest, CreateInvitationRequest } from "@inspectai/contracts";
+import type { Property, Unit, Tenancy, Inspection, CreatePropertyRequest, CreateUnitRequest, CreateTenancyRequest, CreateInvitationRequest, CreateInspectionRequest } from "@inspectai/contracts";
 
 export function useProperties() {
   return useQuery({
@@ -52,8 +52,22 @@ export function useTenancy(id: string) {
   return useQuery({
     queryKey: ["tenancy", id],
     queryFn: () =>
-      fetchApi<Tenancy & { invitations: any[] }>(`/tenancies/${id}`),
+      fetchApi<Tenancy & { invitations: any[]; inspections: Inspection[] }>(`/tenancies/${id}`),
     enabled: !!id,
+  });
+}
+
+export function useCreateInspection(tenancyId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (dto: CreateInspectionRequest) =>
+      fetchApi<Inspection>(`/tenancies/${tenancyId}/inspections`, {
+        method: "POST",
+        body: JSON.stringify(dto),
+      }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["tenancy", tenancyId] });
+    },
   });
 }
 
