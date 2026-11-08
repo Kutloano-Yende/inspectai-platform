@@ -28,3 +28,18 @@ export function resolveTestDatabaseUrl(devUrl: string | undefined): string {
   }
   return url.toString();
 }
+
+/**
+ * Tests never touch real AWS S3 either: they run against the local MinIO container from
+ * docker-compose.yml (same credentials/buckets as `minio-init`), regardless of what the root
+ * .env points the dev server at. Must be called before loadRootEnv(), which only fills gaps.
+ * Set TEST_S3_ENDPOINT (and friends) to point at a different local S3-compatible target.
+ */
+export function setTestS3Env(): void {
+  process.env.S3_ENDPOINT = process.env.TEST_S3_ENDPOINT ?? "http://localhost:9000";
+  process.env.S3_REGION = process.env.TEST_S3_REGION ?? "us-east-1";
+  process.env.S3_ACCESS_KEY = process.env.TEST_S3_ACCESS_KEY ?? "inspectai";
+  process.env.S3_SECRET_KEY = process.env.TEST_S3_SECRET_KEY ?? "inspectai-secret";
+  process.env.S3_EVIDENCE_BUCKET = process.env.TEST_S3_EVIDENCE_BUCKET ?? "inspectai-evidence";
+  process.env.S3_REPORTS_BUCKET = process.env.TEST_S3_REPORTS_BUCKET ?? "inspectai-reports";
+}

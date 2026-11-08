@@ -116,6 +116,11 @@ afterAll(async () => {
 });
 
 beforeEach(async () => {
+  // Last line of defence: never wipe a database that isn't explicitly a test database
+  // (mirrors apps/api/test/helpers.ts's truncateAll — setup.ts's DATABASE_URL redirect is the
+  // first line of defence, this is the second).
+  const [{ current_database: db }] = await prisma.$queryRaw<Array<{ current_database: string }>>`SELECT current_database()`;
+  if (!db.endsWith("_test")) throw new Error(`Refusing to truncate "${db}": not a *_test database.`);
   await prisma.$executeRawUnsafe(
     `TRUNCATE "AuditEvent", "UploadTicket", "Evidence", "AiAnalysis", "Finding", "FindingReview", "InspectionReview", "Report", "Inspection", "TenantInvitation", "Tenancy", "Unit", "Property", "Session", "OrganizationMembership", "User", "Organization" CASCADE`,
   );
