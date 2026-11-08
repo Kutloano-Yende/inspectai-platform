@@ -19,7 +19,12 @@ services:
       pnpm --filter @inspectai/domain build &&
       pnpm --filter @inspectai/storage build &&
       pnpm --filter @inspectai/api build
-    startCommand: pnpm exec prisma migrate deploy && node apps/api/dist/main.js
+    # `node_modules/.bin/prisma` (not `pnpm exec prisma`): `pnpm exec` makes Corepack re-resolve
+    # pnpm at container start, and Corepack's package-signature verification has been failing
+    # there with "Cannot find matching keyid" (a stale-signing-key issue, unrelated to this repo)
+    # even though the build's own `corepack prepare` step succeeds. Invoking the already-installed
+    # binary directly skips that resolution entirely.
+    startCommand: node_modules/.bin/prisma migrate deploy && node apps/api/dist/main.js
     healthCheckPath: /api/v1/health
     envVars:
       - key: NODE_VERSION
