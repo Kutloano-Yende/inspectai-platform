@@ -96,6 +96,7 @@ export class InspectionService {
     const row = await this.prisma.inspection.findUnique({
       where: { id },
       include: {
+        tenancy: { include: { unit: { include: { property: true } } } },
         evidence: true,
         analyses: { orderBy: { id: "desc" }, include: { findings: { include: { reviews: true } } } },
         review: { include: { findingReviews: true } },
@@ -488,6 +489,9 @@ export class InspectionService {
       id: row.id,
       tenancyId: row.tenancyId,
       organizationId: row.organizationId,
+      property: row.tenancy?.unit?.property
+        ? { id: row.tenancy.unit.property.id, address: row.tenancy.unit.property.displayName }
+        : null,
       type: row.type,
       status: row.status,
       plan: row.plan,
@@ -532,6 +536,7 @@ export class InspectionService {
     return this.prisma.inspection.findUnique({
       where: { id },
       include: {
+        tenancy: { include: { unit: { include: { property: true } } } },
         evidence: true,
         analyses: { orderBy: { id: "desc" }, include: { findings: true } },
         review: { include: { findingReviews: true } },
