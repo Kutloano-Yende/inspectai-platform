@@ -17,16 +17,19 @@ Build config lives in [`apps/web/vercel.json`](../apps/web/vercel.json) (install
 workspace root, builds `@inspectai/ui` and `@inspectai/contracts` before `next build`, since
 the web app imports both from `dist`).
 
-**API** — `apps/api`, deployed separately on Render (free Postgres included). Config is a
-Blueprint, [`render.yaml`](../render.yaml) at the repo root: builds `@inspectai/contracts` →
+**API** — `apps/api`, deployed separately on Render. Config is a Blueprint,
+[`render.yaml`](../render.yaml) at the repo root: builds `@inspectai/contracts` →
 `@inspectai/domain` → `@inspectai/storage` → `@inspectai/api` in dependency order, generates
 the Prisma client, runs `prisma migrate deploy` before `node apps/api/dist/main.js` on every
 deploy, and points Render's health check at `GET /api/v1/health` (added in
 [`apps/api/src/health.controller.ts`](../apps/api/src/health.controller.ts) — `@Public()`, no
 DB access, so a database outage doesn't also get the API process killed and restarted).
-Render's free Postgres is deleted after its trial window; recreate it (or upgrade the plan)
-when that happens — the Blueprint's `databases:` block does this in one click, but data does
-not carry over.
+`DATABASE_URL` points at a free Supabase Postgres project, not Render's own — Render's free
+Postgres plan deletes the database after its trial window with no free recovery path, so this
+project uses Supabase's free tier instead, which pauses on inactivity rather than deleting (see
+"Current Production Status" below). The Blueprint's `databases:` block for `inspectai-db` is
+left in place but unreferenced — `DATABASE_URL` is `sync: false`, set manually in Render's
+Environment tab.
 
 **Why a Vercel rewrite, not a direct cross-domain call:** Vercel (`*.vercel.app`) and Render
 (`*.onrender.com`) are different sites from a cookie's perspective, so a browser will not send
@@ -39,11 +42,13 @@ the API doesn't set a cookie `Domain` attribute.
 Setup, once you have a Render account:
 
 1. Render dashboard → New → Blueprint → connect the `Kutloano-Yende/inspectai-platform` repo.
-   Render reads `render.yaml` and creates the `inspectai-api` web service and `inspectai-db`
-   Postgres instance together; `DATABASE_URL` is wired up automatically. `CORS_ORIGINS` and
-   `WEB_APP_URL` are pre-filled from `render.yaml` — update them there (and redeploy) if the
-   Vercel URL ever changes. Storage (`S3_*`) and social sign-in vars are optional — fill them
-   in via the Environment tab if/when needed; see the tables below for what each does.
+   Render reads `render.yaml` and creates the `inspectai-api` web service (and an `inspectai-db`
+   Postgres instance, currently unused — see below). `CORS_ORIGINS` and `WEB_APP_URL` are
+   pre-filled from `render.yaml` — update them there (and redeploy) if the Vercel URL ever
+   changes. Set `DATABASE_URL` manually in the Environment tab to a Postgres connection string
+   (this project uses a free Supabase project, not Render's own Postgres). Storage (`S3_*`) and
+   social sign-in vars are optional — fill them in via the Environment tab if/when needed; see
+   the tables below for what each does.
 2. On Vercel (project → Settings → Environment Variables): set `API_ORIGIN` to the Render
    service's public URL (no trailing slash, no `/api/v1`) and `NEXT_PUBLIC_API_URL=/api/v1`
    (relative, so requests go through the proxy above, not straight to Render). Redeploy after
@@ -53,6 +58,56 @@ Setup, once you have a Render account:
 
 The generic guide below (self-hosted Nginx, S3/R2, Jobs worker, Redis) still applies if/when
 this moves off Vercel/Render, or when Phase 5+ brings AI analysis (Jobs + Redis) online.
+
+---
+
+## ⚠️ Current Production Status (as of 2026-11-20): Up, with two open risks
+
+Both Render services are live and have been exercised against real production data. The
+2026-11-08 outage below (database expiry + a Corepack crash) is resolved. What's open now is
+narrower: the AI-analysis → review → report loop has never been run end-to-end against
+production, and there is currently no backup/recovery path for the production database.
+
+**1. Database — migrated off Render's free Postgres to Supabase.**
+Render's free Postgres plan expires 30 days after creation, with no free recovery path once it
+does (Point-in-Time Recovery and Export are paid-plan-only). Rather than pay to keep the expired
+`inspectai-db` alive, `DATABASE_URL` now points at a free Supabase Postgres project instead (set
+manually in Render's Environment tab — `sync: false` in `render.yaml`, never committed). Supabase's
+free tier pauses on inactivity rather than deleting, which is strictly better, but it still has
+**no automated backups or Point-in-Time Recovery on the free tier** — there is currently no
+recovery path if production data is ever lost again. The old `inspectai-db` Render resource is
+left as-is (suspended/expired, unreferenced by the app) — deleting it is a manual, low-priority
+cleanup step, not yet done.
+
+**2. API — Corepack start-command crash fixed and deployed.**
+The start command previously crashed with `Error: Cannot find matching keyid` (a Corepack
+package-signature verification failure when `pnpm exec` re-resolved the `pnpm` binary at
+container start). `render.yaml`'s `startCommand` now calls `node_modules/.bin/prisma` directly
+instead, skipping that resolution entirely. Committed and deployed — `GET
+https://inspectai-api.onrender.com/api/v1/health` returns `200 {"status":"ok"}` (expect a cold
+start of 20–30s on Render's free tier if the instance has spun down).
+
+**3. Evidence storage — real AWS S3, confirmed working.**
+`S3_*` env vars are set in Render's Environment tab (manual, `sync: false`). A direct scripted
+round trip (ticket → PUT → commit) against the live API confirmed a real object landing in
+`s3.eu-north-1.amazonaws.com`, re-downloaded and re-hashed by the server before being accepted.
+
+**What's actually been verified against production, and what hasn't** (full detail: the
+production verification report from 2026-11-15):
+- ✅ Landlord auth, property/unit/tenancy/invitation CRUD, tenant invitation acceptance, evidence
+  upload ticket issuance and commit (mechanism proven; no evidence currently persists in
+  production — the one test run was cleaned up and never carried through to submission).
+- ❌ **Not yet run against production, only locally:** AI analysis, landlord review
+  (accept/amend/reject), and PDF report generation. This is the main gap before Phase 1 can be
+  called genuinely done end-to-end in production.
+- ⚠️ **Open risk:** `apps/jobs/scripts/demo-report.mjs` and `apps/jobs/scripts/reconstruct-demo-data.mjs`
+  now both refuse to run unless `DATABASE_URL` resolves to `localhost`/`127.0.0.1` (added
+  2026-11-20, after the first script was found to `TRUNCATE` every table with no such guard —
+  exactly the kind of bug that caused an earlier local data-loss incident).
+
+**In the meantime:** local development remains fully independent of Render/Vercel/Supabase —
+Docker Compose's local Postgres, Redis, and MinIO, plus the three `pnpm dev` processes, are still
+the day-to-day development environment.
 
 ---
 

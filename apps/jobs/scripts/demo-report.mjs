@@ -25,7 +25,29 @@ const evidenceBucket = process.env.S3_EVIDENCE_BUCKET ?? "inspectai-evidence";
 const reportsBucket = process.env.S3_REPORTS_BUCKET ?? "inspectai-reports";
 const OK = { freshnessVerified: true, duplicateDetected: false, qualityAcceptable: true };
 
+// This script TRUNCATEs every application table — refuse to run unless DATABASE_URL is
+// clearly local dev, so pointing a shell at a real DATABASE_URL (e.g. copied from Render's
+// dashboard to debug something) can't accidentally wipe production.
+function assertLocalDatabase() {
+  const raw = process.env.DATABASE_URL ?? "";
+  let host = "";
+  try {
+    host = new URL(raw).hostname;
+  } catch {
+    // fall through — empty host is rejected below
+  }
+  if (host !== "localhost" && host !== "127.0.0.1") {
+    console.error(
+      `Refusing to run: DATABASE_URL points at "${host || "(unparseable)"}", not localhost. ` +
+        "This script TRUNCATEs every application table — only ever run it against local dev.",
+    );
+    process.exit(1);
+  }
+}
+
 async function main() {
+  assertLocalDatabase();
+
   // Clean slate for the demo
   await prisma.$executeRawUnsafe(
     `TRUNCATE "AuditEvent", "UploadTicket", "Evidence", "AiAnalysis", "Finding", "FindingReview", "InspectionReview", "Report", "Inspection", "TenantInvitation", "Tenancy", "Unit", "Property", "Session", "OrganizationMembership", "User", "Organization" CASCADE`,
