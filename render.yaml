@@ -37,6 +37,11 @@ services:
       # Set manually via the Render dashboard (Environment tab) — never committed here.
       - key: DATABASE_URL
         sync: false
+      # Shared with inspectai-jobs below — both must point at the same Redis so the queue
+      # this service enqueues to (analysis/report jobs) is the one that service consumes from.
+      # A free Upstash Redis database works here; set manually via the Render dashboard.
+      - key: REDIS_URL
+        sync: false
       # Update if the Vercel URL changes (custom domain, renamed project, etc).
       - key: CORS_ORIGINS
         value: https://inspectai-web-ten.vercel.app
@@ -44,6 +49,53 @@ services:
         value: https://inspectai-web-ten.vercel.app
       # Optional — evidence upload won't work without these, but sign-in doesn't need them.
       # Fill in via the Render dashboard (Environment tab) if/when you set up S3 or R2.
+      - key: S3_ENDPOINT
+        sync: false
+      - key: S3_REGION
+        sync: false
+      - key: S3_ACCESS_KEY
+        sync: false
+      - key: S3_SECRET_KEY
+        sync: false
+      - key: S3_EVIDENCE_BUCKET
+        sync: false
+      - key: S3_REPORTS_BUCKET
+        sync: false
+
+  # Runs the BullMQ analysis/report workers (apps/jobs). Render's free plan only exists for
+  # Web Services — a Background Worker needs a paid instance — so this is deployed as a Web
+  # Service too, same as inspectai-api above, and exposes a trivial /health endpoint purely to
+  # satisfy Render's health check (apps/jobs/src/main.ts). It has no real HTTP API otherwise.
+  - type: web
+    name: inspectai-jobs
+    runtime: node
+    plan: free
+    region: oregon
+    branch: main
+    rootDir: .
+    buildCommand: >-
+      corepack enable &&
+      corepack prepare pnpm@9.7.0 --activate &&
+      pnpm install --frozen-lockfile --prod=false &&
+      pnpm exec prisma generate &&
+      pnpm --filter @inspectai/contracts build &&
+      pnpm --filter @inspectai/domain build &&
+      pnpm --filter @inspectai/storage build &&
+      pnpm --filter @inspectai/jobs build
+    startCommand: node apps/jobs/dist/main.js
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_VERSION
+        value: 20.18.0
+      - key: NODE_ENV
+        value: production
+      # Same Supabase Postgres as inspectai-api — set manually via the Render dashboard.
+      - key: DATABASE_URL
+        sync: false
+      # Same Redis as inspectai-api above — both must point at the same instance.
+      - key: REDIS_URL
+        sync: false
+      # Same real AWS S3 buckets as inspectai-api.
       - key: S3_ENDPOINT
         sync: false
       - key: S3_REGION

@@ -1,3 +1,4 @@
+import { createServer } from "node:http";
 import { Worker } from "bullmq";
 import { Redis } from "ioredis";
 import { PrismaClient } from "@prisma/client";
@@ -39,11 +40,31 @@ export function startWorkers(): { analysis: Worker; report: Worker; connection: 
   return { analysis, report, connection };
 }
 
+// This worker has no HTTP API of its own, but Render's free plan only exists for Web
+// Services (a Background Worker needs a paid instance) — so it's deployed as a Web Service
+// too, and just needs something to answer Render's health check on $PORT.
+function startHealthServer(): ReturnType<typeof createServer> {
+  const port = Number(process.env.PORT ?? 10000);
+  const server = createServer((req, res) => {
+    if (req.url === "/health") {
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ status: "ok" }));
+      return;
+    }
+    res.writeHead(404);
+    res.end();
+  });
+  server.listen(port, () => console.log(`health check listening on :${port}`));
+  return server;
+}
+
 async function main(): Promise<void> {
   const { analysis, report } = startWorkers();
+  const health = startHealthServer();
   console.log(`InspectAI workers running: ${analysis.name}, ${report.name}`);
   const shutdown = async () => {
     await Promise.all([analysis.close(), report.close()]);
+    health.close();
     process.exit(0);
   };
   process.on("SIGINT", shutdown);

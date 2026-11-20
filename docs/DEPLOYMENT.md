@@ -8,7 +8,7 @@
 ## Current Deployment: Web on Vercel, API on Render
 
 This is the setup actually in use today (a preview/demo deployment, not the generic
-self-hosted guide below). Jobs worker, Redis, and social sign-in are not part of it.
+self-hosted guide below). Social sign-in is not part of it.
 ([`railway.json`](../railway.json) at the repo root is an equivalent config for Railway
 instead, kept because it was the first host tried — unused while Render is current.)
 
@@ -31,6 +31,16 @@ project uses Supabase's free tier instead, which pauses on inactivity rather tha
 left in place but unreferenced — `DATABASE_URL` is `sync: false`, set manually in Render's
 Environment tab.
 
+**Jobs** — `apps/jobs` (the BullMQ analysis/report workers), also on Render, as a second
+Blueprint service, `inspectai-jobs`. It has no real HTTP API — Render's free plan only exists
+for Web Services (a Background Worker needs a paid instance), so this service is deployed as a
+Web Service too and exposes a trivial `GET /health` purely to satisfy Render's health check
+([`apps/jobs/src/main.ts`](../apps/jobs/src/main.ts)). It needs its own `REDIS_URL`, pointed at
+the same Redis instance as the API (so the queue one side enqueues to is the one the other
+consumes from) — a free [Upstash](https://upstash.com) Redis database works here; Render's own
+free Key Value offering is explicitly in-memory-only and not meant for production, which would
+risk silently dropping queued jobs on a restart.
+
 **Why a Vercel rewrite, not a direct cross-domain call:** Vercel (`*.vercel.app`) and Render
 (`*.onrender.com`) are different sites from a cookie's perspective, so a browser will not send
 a `SameSite=Lax` cookie set by one to the other — auth would silently fail even with CORS
@@ -42,13 +52,15 @@ the API doesn't set a cookie `Domain` attribute.
 Setup, once you have a Render account:
 
 1. Render dashboard → New → Blueprint → connect the `Kutloano-Yende/inspectai-platform` repo.
-   Render reads `render.yaml` and creates the `inspectai-api` web service (and an `inspectai-db`
-   Postgres instance, currently unused — see below). `CORS_ORIGINS` and `WEB_APP_URL` are
-   pre-filled from `render.yaml` — update them there (and redeploy) if the Vercel URL ever
-   changes. Set `DATABASE_URL` manually in the Environment tab to a Postgres connection string
-   (this project uses a free Supabase project, not Render's own Postgres). Storage (`S3_*`) and
-   social sign-in vars are optional — fill them in via the Environment tab if/when needed; see
-   the tables below for what each does.
+   Render reads `render.yaml` and creates `inspectai-api`, `inspectai-jobs` (and an
+   `inspectai-db` Postgres instance, currently unused — see below). `CORS_ORIGINS` and
+   `WEB_APP_URL` are pre-filled from `render.yaml` — update them there (and redeploy) if the
+   Vercel URL ever changes. Set `DATABASE_URL` manually on **both** services to the same
+   Postgres connection string (this project uses a free Supabase project, not Render's own
+   Postgres), and `REDIS_URL` manually on **both** services to the same Redis connection string
+   (a free [Upstash](https://upstash.com) database — sign up, create a database, copy its
+   `rediss://` connection string). Storage (`S3_*`) and social sign-in vars are optional — fill
+   them in via the Environment tab if/when needed; see the tables below for what each does.
 2. On Vercel (project → Settings → Environment Variables): set `API_ORIGIN` to the Render
    service's public URL (no trailing slash, no `/api/v1`) and `NEXT_PUBLIC_API_URL=/api/v1`
    (relative, so requests go through the proxy above, not straight to Render). Redeploy after
@@ -56,17 +68,23 @@ Setup, once you have a Render account:
 3. Confirm: open the Vercel URL, sign up, and check the request in DevTools → Network goes to
    the Vercel origin's own `/api/v1/auth/register`, not `localhost` or the Render domain.
 
-The generic guide below (self-hosted Nginx, S3/R2, Jobs worker, Redis) still applies if/when
-this moves off Vercel/Render, or when Phase 5+ brings AI analysis (Jobs + Redis) online.
+The generic guide below (self-hosted Nginx, S3/R2) still applies if/when this moves off
+Vercel/Render.
 
 ---
 
-## ⚠️ Current Production Status (as of 2026-11-20): Up, with two open risks
+## ⚠️ Current Production Status (as of 2026-11-20): Up, jobs/Redis pending setup
 
-Both Render services are live and have been exercised against real production data. The
-2026-11-08 outage below (database expiry + a Corepack crash) is resolved. What's open now is
-narrower: the AI-analysis → review → report loop has never been run end-to-end against
-production, and there is currently no backup/recovery path for the production database.
+The API is live and has been exercised against real production data. The 2026-11-08 outage below
+(database expiry + a Corepack crash) is resolved. What's open now: the `inspectai-jobs` Blueprint
+service and its Redis wiring are defined in `render.yaml` but **not yet deployed** — clicking
+"Start Analysis" in production hangs today, because `apps/api`'s queue producer has no
+`REDIS_URL` and falls back to `redis://localhost:6379`, which doesn't exist on Render
+(confirmed directly: the request never completes, and the inspection's status correctly stays
+`SUBMITTED` rather than getting stuck half-transitioned, since the status update and the queue
+write are one atomic transaction). Deploying `inspectai-jobs` and setting a real `REDIS_URL` on
+both services closes this. There is also currently no backup/recovery path for the production
+database.
 
 **1. Database — migrated off Render's free Postgres to Supabase.**
 Render's free Postgres plan expires 30 days after creation, with no free recovery path once it
@@ -98,8 +116,9 @@ production verification report from 2026-11-15):
   upload ticket issuance and commit (mechanism proven; no evidence currently persists in
   production — the one test run was cleaned up and never carried through to submission).
 - ❌ **Not yet run against production, only locally:** AI analysis, landlord review
-  (accept/amend/reject), and PDF report generation. This is the main gap before Phase 1 can be
-  called genuinely done end-to-end in production.
+  (accept/amend/reject), and PDF report generation — blocked on `inspectai-jobs` + Redis not
+  being deployed yet (see above). This is the main gap before Phase 1 can be called genuinely
+  done end-to-end in production.
 - ⚠️ **Open risk:** `apps/jobs/scripts/demo-report.mjs` and `apps/jobs/scripts/reconstruct-demo-data.mjs`
   now both refuse to run unless `DATABASE_URL` resolves to `localhost`/`127.0.0.1` (added
   2026-11-20, after the first script was found to `TRUNCATE` every table with no such guard —
