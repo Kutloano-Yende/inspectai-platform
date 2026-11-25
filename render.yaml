@@ -109,10 +109,8 @@ services:
       - key: S3_REPORTS_BUCKET
         sync: false
 
-# No longer wired to DATABASE_URL above (see the comment there) — left as-is rather than
-# removed, since removing it here is not something to do without separately confirming what
-# that does to the already-provisioned (currently suspended) Render database resource itself.
-databases:
-  - name: inspectai-db
-    plan: free
-    region: oregon
+# No `databases:` block: DATABASE_URL (above, on both services) points at Supabase, not a
+# Render-managed Postgres (see the comment there). A `databases:` block here was previously
+# left in place pointing at an unused free Postgres instance that this Blueprint auto-recreates
+# on every sync (and that Render auto-expires 30 days after each recreation) — confirmed empty
+# (only default Postgres system tables, no app data) before removing it on 2026-11-24.
